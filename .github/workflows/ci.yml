@@ -18,7 +18,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install PyTorch CPU, setuptools, & HoloSphere (editable)
         run: |
-          python3 -m pip install --upgrade pip "setuptools>=68"
+          python3 -m pip install --upgrade pip "setuptools>=77"
           python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python3 -m pip install --no-build-isolation --no-deps -e .
       - name: Run 3-mode isolated -I test parity (0 bare asserts, 0 leaks)
