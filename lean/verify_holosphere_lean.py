@@ -428,14 +428,14 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(p["novelty_grade"] == "N1", "SEC_NOVELTY", "novelty must be N1")
     require_ok(p["n2_claims"] == 0, "SEC_N2_ZERO", "n2_claims must be 0")
     lc = p["lean_companion"]
-    require_ok(lc["named_theorem_count"] == 30, "SEC_LEAN_CNT", "30 named theorems required")
+    require_ok(lc["named_theorem_count"] == 36, "SEC_LEAN_CNT", "36 named theorems required")
     require_ok(
         lc["named_theorem_count"] + lc["helper_theorem_count"] == lc["total_theorem_declarations"],
         "SEC_LEAN_TOTAL",
         "theorem declaration sum mismatch",
     )
 
-    # Pillar 1: SU(2) Associative Scan & Suffix-Sum Adjoint Collapse
+    # Pillar 1: SU(2) Associative Scan & Suffix-Sum Adjoint Collapse + cayley_su2 + Local-S^3
     p1 = p["pillar1_su2_scan_and_suffix_adjoint"]
     require_ok(parse_capped_rational(p1["assoc_diff_sq_q"], "p1_assoc") == 0, "SEC_P1_ASSOC", "associativity diff != 0")
     require_ok(
@@ -459,6 +459,14 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(g_step != 0, "SEC_P1_GRAD_NZ", "gradient witness must be non-zero")
     require_ok(g_step == g_suf, "SEC_P1_ADJ_EQ", "per-step and suffix-sum adjoint must match")
     require_ok(parse_capped_rational(p1["adjoint_collapse_diff_q"], "p1_gdiff") == 0, "SEC_P1_ADJ_DIFF", "adjoint diff != 0")
+    require_ok(parse_capped_rational(p1["cayley_su2_norm_err_q"], "p1_csu2n") == 0, "SEC_P1_CSU2_NORM", "cayley_su2 norm err != 0")
+    require_ok(parse_capped_rational(p1["cayley_su2_acute_w_q"], "p1_csu2w") > 0, "SEC_P1_CSU2_POS", "cayley_su2 w must be > 0")
+    require_ok(parse_capped_rational(p1["local_4d_bank_a_bleed_sq_q"], "p1_loc") == 0, "SEC_P1_LOCAL_ZERO", "local S^3 bleed != 0")
+    require_ok(
+        parse_capped_rational(p1["global_coupled_bank_a_bleed_sq_q"], "p1_glb") > 0,
+        "SEC_P1_GLOBAL_BLEED",
+        "global sphere must bleed across banks",
+    )
 
     # Pillar 2: Covariant (Q, K, V) Parallel Transport & Un-Transport
     p2 = p["pillar2_covariant_qkv_transport"]
@@ -506,8 +514,18 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(parse_capped_rational(p4["darboux_intertwine_diff_sq_q"], "p4_di") == 0, "SEC_P4_DARBOUX", "A L1 != L2 A")
     require_ok(parse_capped_rational(p4["darboux_ak_norm_sq_q"], "p4_dak") == 0, "SEC_P4_KER", "Ak != 0")
     require_ok(parse_capped_rational(p4["darboux_kernel_collision_diff_sq_q"], "p4_dc") == 0, "SEC_P4_COLL", "A(x+k) != Ax")
+    require_ok(
+        parse_capped_rational(p4["cayley2x2_closed_form_grad_w_q"], "p4_cgw") != 0,
+        "SEC_P4_CAYLEY_GRAD_NZ",
+        "Cayley2x2 grad witness must be non-zero",
+    )
+    require_ok(
+        parse_capped_rational(p4["cayley2x2_adjoint_diff_q"], "p4_cadj") == 0,
+        "SEC_P4_CAYLEY_ADJ",
+        "Cayley2x2 closed-form adjoint diff != 0",
+    )
 
-    # Pillar 5: Weft Composed-DeltaW C_row Gate & Atomic Rollback
+    # Pillar 5: Weft Composed-DeltaW C_row Gate, 16B Holonomy Rollback, gateAsymmetric & Left-Quant
     p5 = p["pillar5_weft_crow_safety_and_rollback"]
     c_max = parse_capped_rational(p5["c_max_q"], "p5_cm")
     c1 = parse_capped_rational(p5["c_row_patch1_q"], "p5_c1")
@@ -521,6 +539,29 @@ def _independent_semantics(p: dict[str, Any]) -> None:
     require_ok(p5["safe_single_patch_accepted"] is True, "SEC_P5_SAFE_ACCEPT", "safe single patch must pass")
     require_ok(c_slp == c1, "SEC_P5_SLEEP_INV", "isotropic sleep must preserve C_row")
     require_ok(parse_capped_rational(p5["lifo_rollback_diff_sq_q"], "p5_rb") == 0, "SEC_P5_ROLLBACK", "rollback diff != 0")
+    err1 = parse_capped_rational(p5["repoison_err_step1_sq_q"], "p5_rp1")
+    err5 = parse_capped_rational(p5["repoison_err_step5_sq_q"], "p5_rp5")
+    require_ok(err1 > 0, "SEC_P5_REPOISON_POS", "re-poisoning error must be > 0")
+    require_ok(err1 == err5, "SEC_P5_REPOISON_CONST", "infinite-half-life error must stay constant")
+    require_ok(parse_capped_rational(p5["restored_16b_err_sq_q"], "p5_r16") == 0, "SEC_P5_RESTORE_16B", "16B restore err != 0")
+    require_ok(parse_capped_rational(p5["asym_recovery_excess_sq_q"], "p5_aex") == 0, "SEC_P5_ASYM_ZERO", "asym excess != 0")
+    require_ok(parse_capped_rational(p5["sym_recovery_dist_sq_q"], "p5_sd") > 0, "SEC_P5_SYM_POS", "sym dist must be > 0")
+    require_ok(p5["gate_asymmetric_recovery_accepted"] is True, "SEC_P5_ASYM_OK", "gateAsymmetric must accept recovery")
+    require_ok(
+        p5["gate_symmetric_zero_headroom_accepted"] is False,
+        "SEC_P5_SYM_DEADLOCK",
+        "symmetric gate must deadlock at R=0",
+    )
+    require_ok(
+        parse_capped_rational(p5["left_quant_nullspace_drift_sq_q"], "p5_lq") == 0,
+        "SEC_P5_LEFT_QUANT",
+        "left-factor quant nullspace drift != 0",
+    )
+    require_ok(
+        parse_capped_rational(p5["right_quant_nullspace_drift_sq_q"], "p5_rq") > 0,
+        "SEC_P5_RIGHT_QUANT",
+        "right-factor quant witness must breach ker(A)",
+    )
 
 
 def secondary_audit_payload(payload: Any) -> dict[str, Any]:

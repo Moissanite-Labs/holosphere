@@ -123,7 +123,7 @@ class Test01OraclePrimitivesAndCLI(unittest.TestCase):
         finally:
             sys.stdout = old_out
         summary = json.loads(buf_sum.getvalue())
-        self.assertEqual(summary["lean_theorems"], 30)
+        self.assertEqual(summary["lean_theorems"], 36)
         self.assertEqual(summary["certificate_sha256"], FROZEN_CERT["certificate_sha256"])
         self.assertEqual(buf_std.getvalue().encode("utf-8"), CERT_PATH.read_bytes())
         with self.assertRaises(oracle.HoloSphereOracleError) as cm_arg:
@@ -300,7 +300,7 @@ class Test03R13bLeanLexerAndStaticGate(unittest.TestCase):
             else:
                 lines.append(f"'{name}' depends on axioms: [propext, Quot.sound]")
         parsed = ver.parse_lean_axiom_output("\n".join(lines))
-        self.assertEqual(len(parsed), 30)
+        self.assertEqual(len(parsed), 36)
         self.assertEqual(parsed[oracle.LEAN_THEOREM_NAMES[0]], [])
         self.assertEqual(parsed[oracle.LEAN_THEOREM_NAMES[1]], ["propext", "Quot.sound"])
 
@@ -383,7 +383,7 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
         cases = [
             (["novelty_grade"], "N2", "SEC_NOVELTY"),
             (["n2_claims"], 1, "SEC_N2_ZERO"),
-            (["lean_companion", "named_theorem_count"], 29, "SEC_LEAN_CNT"),
+            (["lean_companion", "named_theorem_count"], 35, "SEC_LEAN_CNT"),
             (["lean_companion", "total_theorem_declarations"], 99, "SEC_LEAN_TOTAL"),
             (["pillar1_su2_scan_and_suffix_adjoint", "assoc_diff_sq_q"], "1", "SEC_P1_ASSOC"),
             (["pillar1_su2_scan_and_suffix_adjoint", "nonabelian_commutator_norm_sq_q"], "0", "SEC_P1_NONABELIAN"),
@@ -393,6 +393,10 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
             (["pillar1_su2_scan_and_suffix_adjoint", "per_step_grad_q"], "0", "SEC_P1_GRAD_NZ"),
             (["pillar1_su2_scan_and_suffix_adjoint", "suffix_sum_grad_q"], "1", "SEC_P1_ADJ_EQ"),
             (["pillar1_su2_scan_and_suffix_adjoint", "adjoint_collapse_diff_q"], "1", "SEC_P1_ADJ_DIFF"),
+            (["pillar1_su2_scan_and_suffix_adjoint", "cayley_su2_norm_err_q"], "1", "SEC_P1_CSU2_NORM"),
+            (["pillar1_su2_scan_and_suffix_adjoint", "cayley_su2_acute_w_q"], "0", "SEC_P1_CSU2_POS"),
+            (["pillar1_su2_scan_and_suffix_adjoint", "local_4d_bank_a_bleed_sq_q"], "1", "SEC_P1_LOCAL_ZERO"),
+            (["pillar1_su2_scan_and_suffix_adjoint", "global_coupled_bank_a_bleed_sq_q"], "0", "SEC_P1_GLOBAL_BLEED"),
             (["pillar2_covariant_qkv_transport", "transport_isometry_diff_q"], "1", "SEC_P2_ISO"),
             (["pillar2_covariant_qkv_transport", "qk_relative_holonomy_diff_q"], "1", "SEC_P2_QK"),
             (["pillar2_covariant_qkv_transport", "interval_cancel_diff_sq_q"], "1", "SEC_P2_INTERVAL"),
@@ -419,6 +423,8 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
             (["pillar4_beltrami_bingham_darboux", "darboux_intertwine_diff_sq_q"], "1", "SEC_P4_DARBOUX"),
             (["pillar4_beltrami_bingham_darboux", "darboux_ak_norm_sq_q"], "1", "SEC_P4_KER"),
             (["pillar4_beltrami_bingham_darboux", "darboux_kernel_collision_diff_sq_q"], "1", "SEC_P4_COLL"),
+            (["pillar4_beltrami_bingham_darboux", "cayley2x2_closed_form_grad_w_q"], "0", "SEC_P4_CAYLEY_GRAD_NZ"),
+            (["pillar4_beltrami_bingham_darboux", "cayley2x2_adjoint_diff_q"], "1", "SEC_P4_CAYLEY_ADJ"),
             (["pillar5_weft_crow_safety_and_rollback", "c_row_patch1_q"], "4/5", "SEC_P5_P1_SAFE"),
             (["pillar5_weft_crow_safety_and_rollback", "c_row_patch2_q"], "4/5", "SEC_P5_P2_SAFE"),
             (["pillar5_weft_crow_safety_and_rollback", "c_row_composed_attack_q"], "3/5", "SEC_P5_COMP_BREACH"),
@@ -426,6 +432,15 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
             (["pillar5_weft_crow_safety_and_rollback", "safe_single_patch_accepted"], False, "SEC_P5_SAFE_ACCEPT"),
             (["pillar5_weft_crow_safety_and_rollback", "c_row_post_isotropic_sleep_q"], "2/5", "SEC_P5_SLEEP_INV"),
             (["pillar5_weft_crow_safety_and_rollback", "lifo_rollback_diff_sq_q"], "1", "SEC_P5_ROLLBACK"),
+            (["pillar5_weft_crow_safety_and_rollback", "repoison_err_step1_sq_q"], "0", "SEC_P5_REPOISON_POS"),
+            (["pillar5_weft_crow_safety_and_rollback", "repoison_err_step5_sq_q"], "1", "SEC_P5_REPOISON_CONST"),
+            (["pillar5_weft_crow_safety_and_rollback", "restored_16b_err_sq_q"], "1", "SEC_P5_RESTORE_16B"),
+            (["pillar5_weft_crow_safety_and_rollback", "asym_recovery_excess_sq_q"], "1", "SEC_P5_ASYM_ZERO"),
+            (["pillar5_weft_crow_safety_and_rollback", "sym_recovery_dist_sq_q"], "0", "SEC_P5_SYM_POS"),
+            (["pillar5_weft_crow_safety_and_rollback", "gate_asymmetric_recovery_accepted"], False, "SEC_P5_ASYM_OK"),
+            (["pillar5_weft_crow_safety_and_rollback", "gate_symmetric_zero_headroom_accepted"], True, "SEC_P5_SYM_DEADLOCK"),
+            (["pillar5_weft_crow_safety_and_rollback", "left_quant_nullspace_drift_sq_q"], "1", "SEC_P5_LEFT_QUANT"),
+            (["pillar5_weft_crow_safety_and_rollback", "right_quant_nullspace_drift_sq_q"], "0", "SEC_P5_RIGHT_QUANT"),
         ]
         for path, bad_val, expected_code in cases:
             p = ver.expected_payload()
@@ -575,7 +590,7 @@ class Test06CLIFlags(unittest.TestCase):
 class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
     def test_13_live_lean_and_cli_verify_lean(self) -> None:
         res = ver.verify_lean4_file_live(LEAN_PATH, check_sha=True)
-        self.assertEqual(res["theorems_verified"], 30)
+        self.assertEqual(res["theorems_verified"], 36)
         self.assertEqual(res["lean_source_sha256"], oracle.LEAN_SOURCE_SHA256)
         self.assertIn("4.36.0", res["lean_version"])
 
@@ -656,7 +671,7 @@ class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
             check=False,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(json.loads(proc.stdout)["theorems_verified"], 30)
+        self.assertEqual(json.loads(proc.stdout)["theorems_verified"], 36)
 
     def test_14_live_init_olean_hijack_blocked(self) -> None:
         lean_bin = ver.resolve_lean_binary()
@@ -680,7 +695,7 @@ class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
             try:
                 os.environ["LEAN_PATH"] = str(fake_dir)
                 clean_res = ver.verify_lean4_file_live(LEAN_PATH, check_sha=True)
-                self.assertEqual(clean_res["theorems_verified"], 30)
+                self.assertEqual(clean_res["theorems_verified"], 36)
             finally:
                 if old_lp is None:
                     os.environ.pop("LEAN_PATH", None)

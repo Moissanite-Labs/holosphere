@@ -360,6 +360,107 @@ theorem p1_quat_scan_suffix_sum_adjoint_collapse
       simp only [perStepGradSum, suffixRightAdjointSum]
       rw [ih, qmul_qadd_right, qmul_qadd_left, inner4_qadd_left]
 
+-- Homogenized SFU-free rational SU(2) Cayley map matching holosphere/geometry/su2.py (cayley_su2)
+def cayleySU2Homog (d x y z : Int) : QuatZ :=
+  ⟨d * d - x * x - y * y - z * z, 2 * d * x, 2 * d * y, 2 * d * z⟩
+
+private theorem two_prod_sq_factor (d v : Int) :
+    (2 * d * v) * (2 * d * v) = (2 * d) * (2 * d) * (v * v) := by
+  simp only [Int.mul_assoc, Int.mul_left_comm]
+
+private theorem cayley_su2_quad_identity (d s : Int) :
+    (d * d - s) * (d * d - s) + (2 * d) * (2 * d) * s =
+      (d * d + s) * (d * d + s) := by
+  rw [two_mul_eq_add d]
+  simp only [Int.sub_eq_add_neg, Int.mul_add,
+             Int.mul_neg, Int.neg_neg, Int.mul_comm, Int.mul_left_comm]
+  omega
+
+-- Theorem 11: SFU-free rational SU(2) Cayley map exact Euler norm and acute -I pole immunity
+theorem p1_cayley_su2_unit_norm_and_acute_positivity (d x y z : Int) :
+    normSq (cayleySU2Homog d x y z) =
+      (d * d + x * x + y * y + z * z) * (d * d + x * x + y * y + z * z) ∧
+    normSq (cayleySU2Homog 1 x y z) =
+      (1 + x * x + y * y + z * z) * (1 + x * x + y * y + z * z) ∧
+    (x * x + y * y + z * z < d * d →
+      0 < (cayleySU2Homog d x y z).w ∧ 0 < d * d + x * x + y * y + z * z) := by
+  have hgen :
+      normSq (cayleySU2Homog d x y z) =
+        (d * d + x * x + y * y + z * z) * (d * d + x * x + y * y + z * z) := by
+    simp only [normSq, inner4, cayleySU2Homog]
+    have hw : d * d - x * x - y * y - z * z = d * d - (x * x + y * y + z * z) := by omega
+    have hp : d * d + x * x + y * y + z * z = d * d + (x * x + y * y + z * z) := by omega
+    have him :
+        (2 * d * x) * (2 * d * x) + (2 * d * y) * (2 * d * y) + (2 * d * z) * (2 * d * z) =
+          (2 * d) * (2 * d) * (x * x + y * y + z * z) := by
+      rw [two_prod_sq_factor d x, two_prod_sq_factor d y, two_prod_sq_factor d z,
+          ← Int.mul_add, ← Int.mul_add]
+    have hassoc4 : ∀ a b c e : Int, a + b + c + e = a + (b + c + e) := by
+      intro a b c e; omega
+    rw [hassoc4, hw, hp, him]
+    exact cayley_su2_quad_identity d (x * x + y * y + z * z)
+  have h1 :
+      normSq (cayleySU2Homog 1 x y z) =
+        (1 + x * x + y * y + z * z) * (1 + x * x + y * y + z * z) := by
+    have h11 : (1 : Int) * 1 = 1 := rfl
+    have hspec :
+        normSq (cayleySU2Homog 1 x y z) =
+          (1 * 1 + x * x + y * y + z * z) * (1 * 1 + x * x + y * y + z * z) := by
+      simp only [normSq, inner4, cayleySU2Homog]
+      have hw : 1 * 1 - x * x - y * y - z * z = 1 * 1 - (x * x + y * y + z * z) := by omega
+      have hp : 1 * 1 + x * x + y * y + z * z = 1 * 1 + (x * x + y * y + z * z) := by omega
+      have him :
+          (2 * 1 * x) * (2 * 1 * x) + (2 * 1 * y) * (2 * 1 * y) + (2 * 1 * z) * (2 * 1 * z) =
+            (2 * 1) * (2 * 1) * (x * x + y * y + z * z) := by
+        rw [two_prod_sq_factor 1 x, two_prod_sq_factor 1 y, two_prod_sq_factor 1 z,
+            ← Int.mul_add, ← Int.mul_add]
+      have hassoc4 : ∀ a b c e : Int, a + b + c + e = a + (b + c + e) := by
+        intro a b c e; omega
+      rw [hassoc4, hw, hp, him]
+      exact cayley_su2_quad_identity 1 (x * x + y * y + z * z)
+    rw [h11] at hspec
+    exact hspec
+  refine ⟨hgen, h1, ?_⟩
+  intro hlt
+  have hx2 := int_sq_nonneg x
+  have hy2 := int_sq_nonneg y
+  have hz2 := int_sq_nonneg z
+  simp only [cayleySU2Homog]
+  refine ⟨by omega, by omega⟩
+
+private theorem qsub_self (p : QuatZ) : qsub p p = qzero := by
+  apply quat_ext <;> simp only [qsub, qzero] <;> omega
+
+private theorem qsub_qscale_left (s1 s2 : Int) (p : QuatZ) :
+    qsub (qscale s1 p) (qscale s2 p) = qscale (s1 - s2) p := by
+  apply quat_ext <;> simp only [qsub, qscale, Int.sub_mul]
+
+private theorem normSq_qscale (s : Int) (p : QuatZ) :
+    normSq (qscale s p) = (s * s) * normSq p := by
+  unfold normSq
+  rw [inner4_qscale_left, inner4_symm, inner4_qscale_left, inner4_symm, ← Int.mul_assoc]
+
+-- Theorem 12: Local block-4 S^3 normalization has zero cross-bank bleed vs global sphere coupling
+theorem p1_local_4d_s3_zero_cross_bank_bleed
+    (qA qB qB_new : QuatZ) (hA : 0 < normSq qA) (hB : normSq qB ≠ normSq qB_new) :
+    qsub (qscale (normSq qA) qA) (qscale (normSq qA) qA) = qzero ∧
+    qsub (qscale (normSq qA + normSq qB_new) qA) (qscale (normSq qA + normSq qB) qA) =
+      qscale (normSq qB_new - normSq qB) qA ∧
+    0 < normSq (qsub (qscale (normSq qA + normSq qB_new) qA)
+                     (qscale (normSq qA + normSq qB) qA)) := by
+  have hdiff : (normSq qA + normSq qB_new) - (normSq qA + normSq qB) =
+      normSq qB_new - normSq qB := by omega
+  have hglobal :
+      qsub (qscale (normSq qA + normSq qB_new) qA) (qscale (normSq qA + normSq qB) qA) =
+        qscale (normSq qB_new - normSq qB) qA := by
+    rw [qsub_qscale_left, hdiff]
+  have hne : normSq qB_new - normSq qB ≠ 0 := by omega
+  have hsq_pos : 0 < (normSq qB_new - normSq qB) * (normSq qB_new - normSq qB) :=
+    int_sq_pos_of_ne_zero (normSq qB_new - normSq qB) hne
+  refine ⟨qsub_self (qscale (normSq qA) qA), hglobal, ?_⟩
+  rw [hglobal, normSq_qscale]
+  exact Int.mul_pos hsq_pos hA
+
 -- ============================================================================
 -- Pillar 2: Covariant (Q, K, V) Parallel Transport & Un-Transport (H14c)
 -- ============================================================================
@@ -978,6 +1079,70 @@ theorem p4_darboux_isospectral_intertwining_and_dark_kernel
     · intro j _
       exact Int.mul_add (A i j) (x j) (k j)
 
+private theorem rot2_input_adjoint_id (c s g0 g1 x0 x1 : Int) :
+    g0 * (c * x0 + s * x1) + g1 * (-s * x0 + c * x1) =
+      (c * g0 - s * g1) * x0 + (s * g0 + c * g1) * x1 := by
+  simp only [Int.sub_eq_add_neg, Int.mul_add,
+             Int.mul_neg, Int.mul_comm, Int.mul_left_comm]
+  omega
+
+private theorem cayley2x2_dy0_num (w x0 x1 : Int) :
+    ((-2 * w) * x0 + 2 * x1) * (1 + w * w) -
+      ((1 - w * w) * x0 + (2 * w) * x1) * (2 * w) =
+    2 * ((-2 * w) * x0 + (1 - w * w) * x1) := by
+  have hm2 : (-2 : Int) * w = -(2 * w) := by omega
+  rw [hm2, two_mul_eq_add w, two_mul_eq_add x1, two_mul_eq_add]
+  simp only [Int.sub_eq_add_neg, Int.mul_add,
+             Int.neg_add, Int.mul_neg, Int.neg_neg,
+             Int.mul_one, Int.mul_comm, Int.mul_left_comm]
+  omega
+
+private theorem cayley2x2_dy1_num (w x0 x1 : Int) :
+    (-2 * x0 - (2 * w) * x1) * (1 + w * w) -
+      ((-2 * w) * x0 + (1 - w * w) * x1) * (2 * w) =
+    -(2 * ((1 - w * w) * x0 + (2 * w) * x1)) := by
+  have hm2w : (-2 : Int) * w = -(2 * w) := by omega
+  have hm2x : (-2 : Int) * x0 = -(x0 + x0) := by omega
+  rw [hm2w, hm2x, two_mul_eq_add w, two_mul_eq_add]
+  simp only [Int.sub_eq_add_neg, Int.mul_add,
+             Int.neg_add, Int.mul_neg, Int.neg_neg,
+             Int.mul_one, Int.mul_comm, Int.mul_left_comm]
+  omega
+
+-- Theorem 29: Closed-form 2x2 Cayley SO(d) input & parameter reverse-mode adjoint
+-- matching Cayley2x2AutogradFn: (1 + w^2) <g, dy/dw> = 2 * (g0 * y1 - g1 * y0)
+theorem p4_cayley2x2_closed_form_adjoint (d n w g0 g1 x0 x1 : Int) :
+    g0 * cayley2x2X d n x0 x1 + g1 * cayley2x2Y d n x0 x1 =
+      ((d * d - n * n) * g0 - (2 * d * n) * g1) * x0 +
+        ((2 * d * n) * g0 + (d * d - n * n) * g1) * x1 ∧
+    g0 * (((-2 * w) * x0 + 2 * x1) * (1 + w * w) - cayley2x2X 1 w x0 x1 * (2 * w)) +
+      g1 * ((-2 * x0 - (2 * w) * x1) * (1 + w * w) - cayley2x2Y 1 w x0 x1 * (2 * w)) =
+      2 * (g0 * cayley2x2Y 1 w x0 x1 - g1 * cayley2x2X 1 w x0 x1) := by
+  have hin :
+      g0 * cayley2x2X d n x0 x1 + g1 * cayley2x2Y d n x0 x1 =
+        ((d * d - n * n) * g0 - (2 * d * n) * g1) * x0 +
+          ((2 * d * n) * g0 + (d * d - n * n) * g1) * x1 := by
+    unfold cayley2x2X cayley2x2Y
+    exact rot2_input_adjoint_id (d * d - n * n) (2 * d * n) g0 g1 x0 x1
+  refine ⟨hin, ?_⟩
+  have hx1 : cayley2x2X 1 w x0 x1 = (1 - w * w) * x0 + (2 * w) * x1 := by
+    unfold cayley2x2X
+    have h11 : (1 : Int) * 1 = 1 := rfl
+    have h21 : (2 : Int) * 1 * w = 2 * w := by omega
+    rw [h11, h21]
+  have hy1 : cayley2x2Y 1 w x0 x1 = (-2 * w) * x0 + (1 - w * w) * x1 := by
+    unfold cayley2x2Y
+    have h11 : (1 : Int) * 1 = 1 := rfl
+    have h21 : -((2 : Int) * 1 * w) = -2 * w := by omega
+    rw [h11, h21]
+  rw [hx1, hy1, cayley2x2_dy0_num w x0 x1, cayley2x2_dy1_num w x0 x1]
+  have set_or_lin : ∀ a b : Int, g0 * (2 * a) + g1 * -(2 * b) = 2 * (g0 * a - g1 * b) := by
+    intro a b
+    rw [two_mul_eq_add a, two_mul_eq_add b, two_mul_eq_add (g0 * a - g1 * b)]
+    simp only [Int.mul_add, Int.mul_neg]
+    omega
+  exact set_or_lin ((-2 * w) * x0 + (1 - w * w) * x1) ((1 - w * w) * x0 + (2 * w) * x1)
+
 -- ============================================================================
 -- Pillar 5: Weft Composed-DeltaW C_row Gate, W10-OBS-20 & Atomic Rollback
 -- ============================================================================
@@ -1139,6 +1304,268 @@ theorem p5_weft_atomic_rollback_exact_involution
     rw [ih (fun r c => W r c + p r c)]
     omega
 
+private theorem quat_foldl_left_mul (us : List QuatZ) (a b : QuatZ) :
+    us.foldl qmul (qmul a b) = qmul a (us.foldl qmul b) := by
+  induction us generalizing b with
+  | nil => rfl
+  | cons u rest ih =>
+    simp only [List.foldl]
+    rw [p1_quat_mul_assoc a b u]
+    exact ih (qmul b u)
+
+private theorem qmul_qsub_left (p q r : QuatZ) :
+    qmul (qsub p q) r = qsub (qmul p r) (qmul q r) := by
+  apply quat_ext <;> simp only [qmul, qsub, Int.sub_mul] <;> omega
+
+private theorem eq_zero_of_sq_eq_zero (a : Int) (h : a * a = 0) : a = 0 := by
+  cases Int.mul_eq_zero.mp h with
+  | inl h0 => exact h0
+  | inr h0 => exact h0
+
+private theorem normSq_pos_of_ne_qzero (p : QuatZ) (hp : p ≠ qzero) :
+    0 < normSq p := by
+  have hw := int_sq_nonneg p.w
+  have hx := int_sq_nonneg p.x
+  have hy := int_sq_nonneg p.y
+  have hz := int_sq_nonneg p.z
+  have hge : 0 ≤ normSq p := by unfold normSq inner4; omega
+  if hpos : 0 < normSq p then
+    exact hpos
+  else
+    have heq0 : normSq p = 0 := by omega
+    unfold normSq inner4 at heq0
+    have hw0 : p.w * p.w = 0 := by omega
+    have hx0 : p.x * p.x = 0 := by omega
+    have hy0 : p.y * p.y = 0 := by omega
+    have hz0 : p.z * p.z = 0 := by omega
+    have hpeq : p = qzero :=
+      quat_ext (eq_zero_of_sq_eq_zero p.w hw0) (eq_zero_of_sq_eq_zero p.x hx0)
+               (eq_zero_of_sq_eq_zero p.y hy0) (eq_zero_of_sq_eq_zero p.z hz0)
+    exact absurd hpeq hp
+
+def restoreHolonomy16B (pi_ckpt _pi_cur : QuatZ) : QuatZ :=
+  pi_ckpt
+
+-- Theorem 34: Infinite-Half-Life SU(2) Holonomy Re-Poisoning Law & 16B Checkpoint Cure
+theorem p5_su2_holonomy_repoisoning_and_16b_rollback
+    (pi_t0 e_err : QuatZ) (clean_future : List QuatZ)
+    (h0 : normSq pi_t0 = 1) (herr_norm : normSq e_err = 1) (herr_ne : e_err ≠ qone)
+    (hclean : ∀ u, u ∈ clean_future → normSq u = 1) :
+    let delta := clean_future.foldl qmul qone
+    let pi_clean := clean_future.foldl qmul pi_t0
+    let pi_stale := clean_future.foldl qmul (qmul pi_t0 e_err)
+    let pi_restored := clean_future.foldl qmul (restoreHolonomy16B pi_t0 (qmul pi_t0 e_err))
+    normSq pi_stale = 1 ∧
+    qmul (qconj pi_t0) pi_clean = delta ∧
+    qmul (qconj pi_t0) pi_stale = qmul e_err delta ∧
+    normSq (qsub (qmul (qconj pi_t0) pi_stale) delta) = normSq (qsub e_err qone) ∧
+    0 < normSq (qsub e_err qone) ∧
+    pi_stale ≠ pi_clean ∧
+    pi_restored = pi_clean ∧
+    qmul (qconj pi_t0) pi_restored = delta := by
+  have hinit_stale : normSq (qmul pi_t0 e_err) = 1 := by
+    rw [p1_quat_euler_four_square_norm, h0, herr_norm]
+    rfl
+  have hstale_unit : normSq (clean_future.foldl qmul (qmul pi_t0 e_err)) = 1 :=
+    p1_quat_prefix_scan_unit_norm clean_future (qmul pi_t0 e_err) hinit_stale hclean
+  have hqone_norm : normSq qone = 1 := by decide
+  have hdelta_unit : normSq (clean_future.foldl qmul qone) = 1 :=
+    p1_quat_prefix_scan_unit_norm clean_future qone hqone_norm hclean
+  have hclean_eq :
+      clean_future.foldl qmul pi_t0 = qmul pi_t0 (clean_future.foldl qmul qone) := by
+    have h1 := quat_foldl_left_mul clean_future pi_t0 qone
+    rw [(p1_quat_identity_and_conj_antihom pi_t0 qone).2.1] at h1
+    exact h1
+  have hstale_eq :
+      clean_future.foldl qmul (qmul pi_t0 e_err) =
+        qmul pi_t0 (qmul e_err (clean_future.foldl qmul qone)) := by
+    have h1 := quat_foldl_left_mul clean_future (qmul pi_t0 e_err) qone
+    rw [(p1_quat_identity_and_conj_antihom (qmul pi_t0 e_err) qone).2.1] at h1
+    rw [h1, p1_quat_mul_assoc]
+  have hrel_clean :
+      qmul (qconj pi_t0) (clean_future.foldl qmul pi_t0) = clean_future.foldl qmul qone := by
+    rw [hclean_eq, (p2_covariant_left_right_inverse_cancel pi_t0 _).2.2 h0 |>.1]
+  have hrel_stale :
+      qmul (qconj pi_t0) (clean_future.foldl qmul (qmul pi_t0 e_err)) =
+        qmul e_err (clean_future.foldl qmul qone) := by
+    rw [hstale_eq, (p2_covariant_left_right_inverse_cancel pi_t0 _).2.2 h0 |>.1]
+  have hsub_err :
+      qsub (qmul e_err (clean_future.foldl qmul qone)) (clean_future.foldl qmul qone) =
+        qmul (qsub e_err qone) (clean_future.foldl qmul qone) := by
+    rw [qmul_qsub_left, (p1_quat_identity_and_conj_antihom (clean_future.foldl qmul qone) qone).1]
+  have herr_const :
+      normSq (qsub (qmul (qconj pi_t0) (clean_future.foldl qmul (qmul pi_t0 e_err)))
+                   (clean_future.foldl qmul qone)) =
+        normSq (qsub e_err qone) := by
+    rw [hrel_stale, hsub_err, p1_quat_euler_four_square_norm, hdelta_unit, Int.mul_one]
+  have hdiff_ne : qsub e_err qone ≠ qzero := by
+    intro hzero
+    apply herr_ne
+    apply quat_ext
+    · have hw := congrArg QuatZ.w hzero; simp only [qsub, qzero] at hw; omega
+    · have hx := congrArg QuatZ.x hzero; simp only [qsub, qzero] at hx; omega
+    · have hy := congrArg QuatZ.y hzero; simp only [qsub, qzero] at hy; omega
+    · have hz := congrArg QuatZ.z hzero; simp only [qsub, qzero] at hz; omega
+  have herr_pos : 0 < normSq (qsub e_err qone) := normSq_pos_of_ne_qzero (qsub e_err qone) hdiff_ne
+  have hstale_ne_clean :
+      clean_future.foldl qmul (qmul pi_t0 e_err) ≠ clean_future.foldl qmul pi_t0 := by
+    intro heq
+    have hrel_eq :
+        qmul (qconj pi_t0) (clean_future.foldl qmul (qmul pi_t0 e_err)) =
+          clean_future.foldl qmul qone := by
+      rw [heq, hrel_clean]
+    have hzero_norm : normSq (qsub e_err qone) = 0 := by
+      rw [← herr_const, hrel_eq, qsub_self]
+      decide
+    omega
+  refine ⟨hstale_unit, hrel_clean, hrel_stale, herr_const, herr_pos, hstale_ne_clean, rfl, hrel_clean⟩
+
+-- Asymmetric safety recovery gate vs symmetric trust-region deadlock (optifab / SiliSense)
+def posPart (x : Int) : Int :=
+  if 0 ≤ x then x else 0
+
+def asymExcessSq (n : Nat) (u u0 : Nat → Int) : Int :=
+  sumN n (fun i => posPart (u i - u0 i) * posPart (u i - u0 i))
+
+def symDistSq (n : Nat) (u u0 : Nat → Int) : Int :=
+  sumN n (fun i => (u i - u0 i) * (u i - u0 i))
+
+def gateAsymmetric (n : Nat) (u u0 : Nat → Int) (R : Int) : Bool :=
+  decide (asymExcessSq n u u0 ≤ R * R)
+
+def gateSymmetricSigned (n : Nat) (u u0 : Nat → Int) (R : Int) : Bool :=
+  decide (0 ≤ R) && decide (symDistSq n u u0 ≤ R * R)
+
+private theorem sumN_nonneg (n : Nat) (f : Nat → Int)
+    (hnn : ∀ i, i < n → 0 ≤ f i) : 0 ≤ sumN n f := by
+  induction n with
+  | zero => simp only [sumN]; omega
+  | succ k ih =>
+    simp only [sumN]
+    have h1 := ih (fun j hj => hnn j (Nat.lt_succ_of_lt hj))
+    have h2 := hnn k (Nat.lt_succ_self k)
+    omega
+
+private theorem sumN_pos_of_nonneg_of_pos (n i0 : Nat) (f : Nat → Int)
+    (hi0 : i0 < n) (hnn : ∀ i, i < n → 0 ≤ f i) (hpos : 0 < f i0) :
+    0 < sumN n f := by
+  induction n with
+  | zero => omega
+  | succ k ih =>
+    simp only [sumN]
+    if hik : k = i0 then
+      subst hik
+      have hprev := sumN_nonneg k f (fun j hj => hnn j (Nat.lt_succ_of_lt hj))
+      omega
+    else
+      have hlt : i0 < k := by omega
+      have h1 := ih hlt (fun j hj => hnn j (Nat.lt_succ_of_lt hj))
+      have h2 := hnn k (Nat.lt_succ_self k)
+      omega
+
+-- Theorem 35: gateAsymmetric admits strict safety recovery at R <= 0 while symmetric gate deadlocks
+theorem p5_gate_asymmetric_recovery_vs_symmetric_deadlock
+    (n i0 : Nat) (u u0 : Nat → Int) (R : Int)
+    (hi0 : i0 < n) (hdesc : ∀ i, i < n → u i ≤ u0 i) (hstrict : u i0 < u0 i0) :
+    asymExcessSq n u u0 = 0 ∧
+    gateAsymmetric n u u0 R = true ∧
+    0 < symDistSq n u u0 ∧
+    (R ≤ 0 → gateSymmetricSigned n u u0 R = false) := by
+  have hasym0 : asymExcessSq n u u0 = 0 := by
+    unfold asymExcessSq
+    rw [sumN_congr n _ (fun _ => 0)]
+    · exact sumN_zero n
+    · intro i hi
+      have hle := hdesc i hi
+      unfold posPart
+      if hge0 : 0 ≤ u i - u0 i then
+        have hz : u i - u0 i = 0 := by omega
+        rw [hz]
+        decide
+      else
+        simp only [hge0, ite_false, Int.zero_mul]
+  have hgate_ok : gateAsymmetric n u u0 R = true := by
+    unfold gateAsymmetric
+    rw [hasym0]
+    simp only [decide_eq_true_eq]
+    exact int_sq_nonneg R
+  have hsym_pos : 0 < symDistSq n u u0 := by
+    unfold symDistSq
+    apply sumN_pos_of_nonneg_of_pos n i0 _ hi0
+    · intro i _
+      exact int_sq_nonneg (u i - u0 i)
+    · apply int_sq_pos_of_ne_zero
+      omega
+  refine ⟨hasym0, hgate_ok, hsym_pos, ?_⟩
+  intro hRle
+  unfold gateSymmetricSigned
+  if hR0 : 0 ≤ R then
+    have hReq0 : R = 0 := by omega
+    rw [hReq0]
+    have hnot : ¬ (symDistSq n u u0 ≤ 0 * 0) := by omega
+    simp only [hnot, decide_false, Bool.and_false]
+  else
+    simp only [hR0, decide_false, Bool.false_and]
+
+def rightOrigA (i j : Nat) : Int :=
+  match i, j with
+  | 0, 0 => 2
+  | 0, 1 => -2
+  | _, _ => 0
+
+def rightQuantA (i j : Nat) : Int :=
+  match i, j with
+  | 0, 0 => 2
+  | 0, 1 => -1
+  | _, _ => 0
+
+def rightNullX : Nat → Int
+  | 0 => 1
+  | 1 => 1
+  | _ => 0
+
+-- Theorem 36: Asymmetric left-factor quantization Q(B) A x = 0 has zero null-space drift
+-- whereas right-factor quantization Q(A) x != 0 shatters ker(A)
+theorem p5_asymmetric_left_factor_zero_nullspace_drift
+    (p m n : Nat) (Q_B A : Nat → Nat → Int) (x : Nat → Int)
+    (hker : ∀ r, r < m → matVecRect m n A x r = 0) :
+    (∀ i, i < p → matVecRect p m Q_B (matVecRect m n A x) i = 0) ∧
+    (∀ i, i < p → matVecRect p n (matMulRect p m n Q_B A) x i = 0) ∧
+    matVecRect 1 2 rightOrigA rightNullX 0 = 0 ∧
+    matVecRect 1 2 rightQuantA rightNullX 0 ≠ 0 := by
+  have hstaged : ∀ i, i < p → matVecRect p m Q_B (matVecRect m n A x) i = 0 := by
+    intro i _
+    change sumN m (fun r => Q_B i r * matVecRect m n A x r) = 0
+    rw [sumN_congr m _ (fun _ => 0)]
+    · exact sumN_zero m
+    · intro r hr
+      rw [hker r hr, Int.mul_zero]
+  have hfused : ∀ i, i < p → matVecRect p n (matMulRect p m n Q_B A) x i = 0 := by
+    intro i hi
+    have hswap_eq :
+        matVecRect p n (matMulRect p m n Q_B A) x i =
+          matVecRect p m Q_B (matVecRect m n A x) i := by
+      unfold matVecRect matMulRect
+      have hl :
+          sumN n (fun j => sumN m (fun r => Q_B i r * A r j) * x j) =
+            sumN n (fun j => sumN m (fun r => Q_B i r * (A r j * x j))) := by
+        apply sumN_congr
+        intro j _
+        rw [← sumN_mul_right]
+        apply sumN_congr
+        intro r _
+        exact Int.mul_assoc (Q_B i r) (A r j) (x j)
+      have hr :
+          sumN m (fun r => Q_B i r * sumN n (fun j => A r j * x j)) =
+            sumN m (fun r => sumN n (fun j => Q_B i r * (A r j * x j))) := by
+        apply sumN_congr
+        intro r _
+        exact (sumN_mul_left n (Q_B i r) _).symm
+      rw [hl, hr, sumN_swap n m]
+    rw [hswap_eq]
+    exact hstaged i hi
+  refine ⟨hstaged, hfused, by decide, by decide⟩
+
 end HoloSphereInvariants
 
 #print axioms HoloSphereInvariants.p1_quat_mul_assoc
@@ -1151,6 +1578,8 @@ end HoloSphereInvariants
 #print axioms HoloSphereInvariants.p1_quat_bilinear_two_sided_adjoint
 #print axioms HoloSphereInvariants.p1_quat_scan_step_backward_factorization
 #print axioms HoloSphereInvariants.p1_quat_scan_suffix_sum_adjoint_collapse
+#print axioms HoloSphereInvariants.p1_cayley_su2_unit_norm_and_acute_positivity
+#print axioms HoloSphereInvariants.p1_local_4d_s3_zero_cross_bank_bleed
 #print axioms HoloSphereInvariants.p2_covariant_left_right_inverse_cancel
 #print axioms HoloSphereInvariants.p2_covariant_left_transport_isometry
 #print axioms HoloSphereInvariants.p2_covariant_qk_score_relative_holonomy
@@ -1167,7 +1596,11 @@ end HoloSphereInvariants
 #print axioms HoloSphereInvariants.p4_beltrami_symmetric_residual_rayleigh_drift
 #print axioms HoloSphereInvariants.p4_poloidal_bingham_hodge_stagnant_lid
 #print axioms HoloSphereInvariants.p4_darboux_isospectral_intertwining_and_dark_kernel
+#print axioms HoloSphereInvariants.p4_cayley2x2_closed_form_adjoint
 #print axioms HoloSphereInvariants.p5_weft_w10_obs20_cancellation_attack_blocked
 #print axioms HoloSphereInvariants.p5_weft_tri_conjunctive_commit_soundness
 #print axioms HoloSphereInvariants.p5_weft_isotropic_sleep_preserves_crow_gate
 #print axioms HoloSphereInvariants.p5_weft_atomic_rollback_exact_involution
+#print axioms HoloSphereInvariants.p5_su2_holonomy_repoisoning_and_16b_rollback
+#print axioms HoloSphereInvariants.p5_gate_asymmetric_recovery_vs_symmetric_deadlock
+#print axioms HoloSphereInvariants.p5_asymmetric_left_factor_zero_nullspace_drift

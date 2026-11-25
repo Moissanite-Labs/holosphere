@@ -15,7 +15,7 @@ Computes exact integer/Fraction witnesses across all 5 HoloSphere Pillars:
   - Pillar 5: Weft composed-DeltaW C_row safety gate (blocking W10-OBS-20 multi-patch
               cancellation attack), isotropic sleep invariance, and LIFO rollback.
 
-Companions `HoloSphereInvariants.lean` (30 public + 36 private = 66 theorem decls).
+Companions `HoloSphereInvariants.lean` (36 public + 50 private = 86 theorem decls).
 """
 
 from __future__ import annotations
@@ -30,10 +30,10 @@ SCHEMA_VERSION = "holosphere.lean_invariants.v1"
 TRACK_ID = "holosphere-lean-invariants"
 LEAN_FILE_NAME = "HoloSphereInvariants.lean"
 LEAN_TOOLCHAIN = "leanprover/lean4:v4.36.0"
-LEAN_SOURCE_SHA256 = "059cb938f0dbd6feb732f59ebb30776a808829f2e5edcd77c8d54ca71bb61e4e"
-LEAN_NAMED_THEOREM_COUNT = 30
-LEAN_HELPER_THEOREM_COUNT = 36
-LEAN_TOTAL_THEOREM_DECLS = 66
+LEAN_SOURCE_SHA256 = "0ce44d8063ba721cd73edabea7a0b17a4ee6b505ca05297f290dc012dd15d5fb"
+LEAN_NAMED_THEOREM_COUNT = 36
+LEAN_HELPER_THEOREM_COUNT = 50
+LEAN_TOTAL_THEOREM_DECLS = 86
 
 LEAN_THEOREM_SHORT_NAMES: tuple[str, ...] = (
     "p1_quat_mul_assoc",
@@ -46,6 +46,8 @@ LEAN_THEOREM_SHORT_NAMES: tuple[str, ...] = (
     "p1_quat_bilinear_two_sided_adjoint",
     "p1_quat_scan_step_backward_factorization",
     "p1_quat_scan_suffix_sum_adjoint_collapse",
+    "p1_cayley_su2_unit_norm_and_acute_positivity",
+    "p1_local_4d_s3_zero_cross_bank_bleed",
     "p2_covariant_left_right_inverse_cancel",
     "p2_covariant_left_transport_isometry",
     "p2_covariant_qk_score_relative_holonomy",
@@ -62,10 +64,14 @@ LEAN_THEOREM_SHORT_NAMES: tuple[str, ...] = (
     "p4_beltrami_symmetric_residual_rayleigh_drift",
     "p4_poloidal_bingham_hodge_stagnant_lid",
     "p4_darboux_isospectral_intertwining_and_dark_kernel",
+    "p4_cayley2x2_closed_form_adjoint",
     "p5_weft_w10_obs20_cancellation_attack_blocked",
     "p5_weft_tri_conjunctive_commit_soundness",
     "p5_weft_isotropic_sleep_preserves_crow_gate",
     "p5_weft_atomic_rollback_exact_involution",
+    "p5_su2_holonomy_repoisoning_and_16b_rollback",
+    "p5_gate_asymmetric_recovery_vs_symmetric_deadlock",
+    "p5_asymmetric_left_factor_zero_nullspace_drift",
 )
 
 LEAN_THEOREM_NAMES: tuple[str, ...] = tuple(
@@ -271,6 +277,29 @@ def _build_pillar1() -> dict[str, Any]:
     collapsed_grad_vec = q_mul(q_mul(q_conj(pi0), sigma_1), pi1)
     suffix_sum_grad = q_inner4(collapsed_grad_vec, du1)
 
+    # Wave-2 Pillar 1 additions: rational cayley_su2 & local-4D S^3 zero cross-bank bleed
+    wx, wy, wz = Fraction(2, 5), Fraction(2, 5), Fraction(2, 5)
+    om_sq = wx * wx + wy * wy + wz * wz
+    den_su2 = Fraction(1) + om_sq
+    q_csu2 = q_make(
+        (Fraction(1) - om_sq) / den_su2,
+        (Fraction(2) * wx) / den_su2,
+        (Fraction(2) * wy) / den_su2,
+        (Fraction(2) * wz) / den_su2,
+    )
+    csu2_norm_err = q_norm_sq(q_csu2) - Fraction(1)
+
+    qa = q_make(1, 2, -1, 1)
+    qb = q_make(1, 0, 1, 0)
+    qb_new = q_make(2, 1, 2, 0)
+    sa = q_norm_sq(qa)
+    sb = q_norm_sq(qb)
+    sb_new = q_norm_sq(qb_new)
+    local_bank_a_bleed_sq = q_norm_sq(q_sub(q_scale(Fraction(1) / sa, qa), q_scale(Fraction(1) / sa, qa)))
+    global_bank_a_bleed_sq = q_norm_sq(
+        q_sub(q_scale(Fraction(1) / (sa + sb_new), qa), q_scale(Fraction(1) / (sa + sb), qa))
+    )
+
     return {
         "assoc_diff_sq_q": q_str(assoc_diff),
         "nonabelian_commutator_norm_sq_q": q_str(comm_norm),
@@ -280,6 +309,10 @@ def _build_pillar1() -> dict[str, Any]:
         "per_step_grad_q": q_str(per_step_grad),
         "suffix_sum_grad_q": q_str(suffix_sum_grad),
         "adjoint_collapse_diff_q": q_str(per_step_grad - suffix_sum_grad),
+        "cayley_su2_norm_err_q": q_str(csu2_norm_err),
+        "cayley_su2_acute_w_q": q_str(q_csu2[0]),
+        "local_4d_bank_a_bleed_sq_q": q_str(local_bank_a_bleed_sq),
+        "global_coupled_bank_a_bleed_sq_q": q_str(global_bank_a_bleed_sq),
     }
 
 
@@ -430,6 +463,26 @@ def _build_pillar4() -> dict[str, Any]:
     axk = mat_vec_q(a_mat, [x_vec[j] + k_vec[j] for j in range(3)])
     col_diff = sum(((ax[i] - axk[i]) ** 2 for i in range(2)), Fraction(0))
 
+    # Wave-2 Pillar 4 addition: closed-form Cayley2x2 reverse-mode adjoint
+    w_adj = Fraction(3, 4)
+    x0_adj, x1_adj = Fraction(5), Fraction(-2)
+    g0_adj, g1_adj = Fraction(3), Fraction(7)
+    den_adj = Fraction(1) + w_adj * w_adj
+    c_adj = (Fraction(1) - w_adj * w_adj) / den_adj
+    s_adj = (Fraction(2) * w_adj) / den_adj
+    y0_adj = c_adj * x0_adj + s_adj * x1_adj
+    y1_adj = -s_adj * x0_adj + c_adj * x1_adj
+    dy0_dw = (
+        (-Fraction(2) * w_adj * x0_adj + Fraction(2) * x1_adj) * den_adj
+        - ((Fraction(1) - w_adj * w_adj) * x0_adj + Fraction(2) * w_adj * x1_adj) * (Fraction(2) * w_adj)
+    ) / (den_adj * den_adj)
+    dy1_dw = (
+        (-Fraction(2) * x0_adj - Fraction(2) * w_adj * x1_adj) * den_adj
+        - (-Fraction(2) * w_adj * x0_adj + (Fraction(1) - w_adj * w_adj) * x1_adj) * (Fraction(2) * w_adj)
+    ) / (den_adj * den_adj)
+    quot_grad_w = g0_adj * dy0_dw + g1_adj * dy1_dw
+    closed_form_grad_w = (Fraction(2) / den_adj) * (g0_adj * y1_adj - g1_adj * y0_adj)
+
     return {
         "beltrami_commutator_diff_sq_q": q_str(comm_diff),
         "beltrami_energy_in_q": q_str(e_in),
@@ -447,6 +500,8 @@ def _build_pillar4() -> dict[str, Any]:
         "darboux_intertwine_diff_sq_q": q_str(intertwine_diff),
         "darboux_ak_norm_sq_q": q_str(ak_sq),
         "darboux_kernel_collision_diff_sq_q": q_str(col_diff),
+        "cayley2x2_closed_form_grad_w_q": q_str(closed_form_grad_w),
+        "cayley2x2_adjoint_diff_q": q_str(quot_grad_w - closed_form_grad_w),
     }
 
 
@@ -468,6 +523,44 @@ def _build_pillar5() -> dict[str, Any]:
     w_rolled = [[w_after[i][j] - dw2[i][j] - dw1[i][j] for j in range(2)] for i in range(2)]
     rb_diff = sum(((w_rolled[i][j] - w0[i][j]) ** 2 for i in range(2) for j in range(2)), Fraction(0))
 
+    # Wave-2 Pillar 5 additions:
+    # (a) Infinite-half-life SU(2) holonomy re-poisoning & 16B checkpoint rollback
+    us = _unit_stream_8()
+    pi_t0 = q_mul(us[0], us[1])
+    e_err = us[2]
+    clean_fut = us[3:8]
+    pi_stale_1 = q_mul(q_mul(pi_t0, e_err), clean_fut[0])
+    delta_1 = clean_fut[0]
+    err_step1_sq = q_norm_sq(q_sub(q_mul(q_conj(pi_t0), pi_stale_1), delta_1))
+    pi_stale_5 = q_mul(pi_t0, e_err)
+    delta_5 = q_make(1, 0, 0, 0)
+    pi_restored_5 = pi_t0
+    for u in clean_fut:
+        pi_stale_5 = q_mul(pi_stale_5, u)
+        delta_5 = q_mul(delta_5, u)
+        pi_restored_5 = q_mul(pi_restored_5, u)
+    err_step5_sq = q_norm_sq(q_sub(q_mul(q_conj(pi_t0), pi_stale_5), delta_5))
+    restored_16b_err_sq = q_norm_sq(q_sub(q_mul(q_conj(pi_t0), pi_restored_5), delta_5))
+
+    # (b) gateAsymmetric recovery vs symmetric deadlock at R = 0
+    u0_obs = [Fraction(10), Fraction(8), Fraction(5)]
+    u_rec = [Fraction(7), Fraction(6), Fraction(5)]
+    r_wall = Fraction(0)
+    asym_excess_sq = sum((max(Fraction(0), u_rec[i] - u0_obs[i]) ** 2 for i in range(3)), Fraction(0))
+    sym_dist_sq = sum(((u_rec[i] - u0_obs[i]) ** 2 for i in range(3)), Fraction(0))
+    gate_asym_ok = bool(asym_excess_sq <= r_wall * r_wall)
+    gate_sym_ok = bool(r_wall >= 0 and sym_dist_sq <= r_wall * r_wall)
+
+    # (c) Asymmetric left-factor quantization zero nullspace drift vs right-factor breach
+    qb_quant = [[Fraction(3), Fraction(-1)], [Fraction(2), Fraction(5)]]
+    a_unquant = [[Fraction(2), Fraction(-2)], [Fraction(-1), Fraction(1)]]
+    x_null = [Fraction(1), Fraction(1)]
+    left_q_out = mat_vec_q(mat_mul_q(qb_quant, a_unquant), x_null)
+    left_q_drift_sq = sum((v * v for v in left_q_out), Fraction(0))
+    a_right_quant = [[Fraction(2), Fraction(-1)], [Fraction(-1), Fraction(1)]]
+    right_q_out = mat_vec_q(mat_mul_q(qb_quant, a_right_quant), x_null)
+    right_q_drift_sq = sum((v * v for v in right_q_out), Fraction(0))
+
     return {
         "c_max_q": q_str(c_max),
         "c_row_patch1_q": q_str(c1),
@@ -477,6 +570,15 @@ def _build_pillar5() -> dict[str, Any]:
         "safe_single_patch_accepted": bool(c1 <= c_max),
         "c_row_post_isotropic_sleep_q": q_str(c_sleep),
         "lifo_rollback_diff_sq_q": q_str(rb_diff),
+        "repoison_err_step1_sq_q": q_str(err_step1_sq),
+        "repoison_err_step5_sq_q": q_str(err_step5_sq),
+        "restored_16b_err_sq_q": q_str(restored_16b_err_sq),
+        "asym_recovery_excess_sq_q": q_str(asym_excess_sq),
+        "sym_recovery_dist_sq_q": q_str(sym_dist_sq),
+        "gate_asymmetric_recovery_accepted": gate_asym_ok,
+        "gate_symmetric_zero_headroom_accepted": gate_sym_ok,
+        "left_quant_nullspace_drift_sq_q": q_str(left_q_drift_sq),
+        "right_quant_nullspace_drift_sq_q": q_str(right_q_drift_sq),
     }
 
 
