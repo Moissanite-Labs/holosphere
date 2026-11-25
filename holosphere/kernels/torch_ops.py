@@ -53,18 +53,19 @@ class SU2UnitPrefixScanFunction(torch.autograd.Function):
         require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
         require_ok(delta_u.ndim >= 3 and delta_u.shape[-1] == 4, "delta_u must be [..., T, n_blocks, 4]", code="SCAN_SHAPE")
         n2 = torch.sum(delta_u * delta_u, dim=-1, keepdim=True)
+        active = n2 > (eps * eps)
         norm = torch.sqrt(n2 + (eps * eps))
         u_hat = delta_u / norm
         id_q = torch.zeros_like(u_hat)
         id_q[..., 0] = 1.0
-        u_hat = torch.where(n2 <= (eps * eps), id_q, u_hat)
+        u_hat = torch.where(active, u_hat, id_q)
         pi = su2_parallel_prefix_scan(u_hat, seq_dim=-3, eps=eps)
-        ctx.save_for_backward(u_hat, norm, pi)
+        ctx.save_for_backward(u_hat, norm, pi, active)
         return pi
 
     @staticmethod
     def backward(ctx, grad_pi: torch.Tensor) -> tuple[torch.Tensor, None]:  # type: ignore[override]
-        u_hat, norm, pi = ctx.saved_tensors
+        u_hat, norm, pi, active = ctx.saved_tensors
         # 1. Per-step pullback g_j * conj(Pi_j) -> pure additive suffix sum S_t = sum_{j>=t} term_j
         term = quat_mul(grad_pi, quat_conj(pi))
         s_suffix = torch.flip(torch.cumsum(torch.flip(term, dims=(-3,)), dim=-3), dims=(-3,))
@@ -77,9 +78,9 @@ class SU2UnitPrefixScanFunction(torch.autograd.Function):
         # 3. Exact unit-quaternion adjoint: grad_u_hat[t] = conj(Pi[t-1]) * S[t] * Pi[t]
         grad_u_hat = quat_mul(quat_conj(pi_prev), quat_mul(s_suffix, pi))
 
-        # 4. Chain rule through smooth unit normalization u_hat = delta_u / sqrt(||delta_u||^2 + eps^2)
+        # 4. Chain rule through smooth unit normalization (masked to 0 on constant identity fallback)
         dot_ug = torch.sum(grad_u_hat * u_hat, dim=-1, keepdim=True)
-        grad_delta_u = (grad_u_hat - dot_ug * u_hat) / norm
+        grad_delta_u = torch.where(active, (grad_u_hat - dot_ug * u_hat) / norm, torch.zeros_like(grad_u_hat))
         return grad_delta_u, None
 
 
@@ -141,7 +142,8 @@ def torch_su2_holonomy_transport(
     q_rot = quat_left_transport(q, pi_cast)
     k_rot = quat_left_transport(k, pi_cast)
     v_rot = quat_left_transport(v, pi_cast) if transport_v else v
-    # Preserve pi_path in FP32/FP64 so S^3 manifold norm stays <= 1e-6 under BF16 autocast (W10-OBS-36).
+    # Preserve pi_path in FP32/FP64 so S^3 manifold norm stays <= 1e-6 under BF16 autocast;
+    # note Q/K/V transport multiplies execute in q.dtype so BF16 L(Pi^-1)L(Pi) is approximate.
     return q_rot, k_rot, v_rot, pi_path
 
 

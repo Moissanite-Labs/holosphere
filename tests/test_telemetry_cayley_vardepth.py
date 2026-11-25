@@ -32,6 +32,7 @@ from holosphere.kernels.dispatch import (
     safe_hopf_clock,
     su2_holonomy_transport,
 )
+from holosphere.kernels.torch_ops import SU2UnitPrefixScanFunction
 from holosphere.models import (
     CovariantSU2Attention,
     HoloSphereTransformer,
@@ -170,6 +171,20 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
         self.assertEqual(prof, prof2)
         self.assertEqual(prof.profile_sha256(), prof2.profile_sha256())
         self.assertEqual(len(prof.profile_sha256()), 64)
+
+        # D2 regression: int 0 vs float 0.0 vs -0.0 MUST produce bit-identical canonical profile_sha256()
+        p_int = HoloSphereTuningProfile(backend="torch_cpu", block_t=64, inter_step_cooldown_ms=0)
+        p_flt = HoloSphereTuningProfile(backend="torch_cpu", block_t=64, inter_step_cooldown_ms=0.0)
+        p_neg = HoloSphereTuningProfile(backend="torch_cpu", block_t=64, inter_step_cooldown_ms=-0.0)
+        p_dct = HoloSphereTuningProfile.from_dict({"backend": "torch_cpu", "block_t": 64, "inter_step_cooldown_ms": 0})
+        self.assertEqual(p_int.profile_sha256(), p_flt.profile_sha256())
+        self.assertEqual(p_int.profile_sha256(), p_neg.profile_sha256())
+        self.assertEqual(p_int.profile_sha256(), p_dct.profile_sha256())
+        self.assertIsInstance(p_int.inter_step_cooldown_ms, float)
+
+        # N12 regression: unhashable backend must raise typed HoloSphereError, never TypeError
+        with self.assertRaises(HoloSphereError):
+            HoloSphereTuningProfile(backend=[])  # type: ignore[arg-type]
 
         tel = build_step_telemetry(
             step_idx=3,
@@ -354,6 +369,17 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
         seq[:, 1] = 0.0
         scanned = su2_parallel_prefix_scan(seq, seq_dim=1, eps=1e-6)
         self.assertLess(float(torch.max(torch.abs(torch.linalg.vector_norm(scanned, dim=-1) - 1.0)).item()), 1e-12)
+
+        # N8 regression: zero-fallback lane in SU2UnitPrefixScanFunction.backward must yield exact 0.0 gradient
+        du_zero = torch.randn((1, 4, 2, 4), generator=gen, dtype=torch.float64)
+        du_zero[:, 1] = 0.0
+        du_zero.requires_grad_(True)
+        pi_zero = SU2UnitPrefixScanFunction.apply(du_zero, 1e-6)
+        w_out = torch.randn(pi_zero.shape, generator=gen, dtype=torch.float64)
+        (pi_zero * w_out).sum().backward()
+        self.assertIsNotNone(du_zero.grad)
+        self.assertTrue(bool(torch.isfinite(du_zero.grad).all().item()))
+        self.assertEqual(float(torch.max(torch.abs(du_zero.grad[:, 1])).item()), 0.0)
 
         # 3. ML4 P0 block-4 tied sqk preserves exact SU(2) 4-block equivariance
         attn = CovariantSU2Attention(d_model=32, n_heads=2, pos_mode="su2_holonomy", ngpt_qk_norm=True)

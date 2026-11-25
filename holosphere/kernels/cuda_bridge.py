@@ -254,8 +254,17 @@ class _CudaSU2HolonomyBHTDFn(torch.autograd.Function):
     ):  # type: ignore[override]
         lib = load_cuda_library()
         require_ok(lib is not None, "libsu2_holonomy_sm86.so not loaded", code="CUDA_LIB")
+        require_ok(q.ndim == 4 and k.shape == q.shape, "q and k must share [B, H, T, D]", code="QKV_SHAPE")
+        if v is not None:
+            require_ok(v.shape == q.shape, "v must match q shape [B, H, T, D]", code="QKV_SHAPE")
         bsz, n_heads, seq_len, d_head = q.shape
+        require_ok(d_head > 0 and d_head % 4 == 0, f"d_head must be positive multiple of 4, got {d_head}", code="QKV_DIM")
         n_blocks = d_head // 4
+        require_ok(
+            tuple(omega.shape) == (bsz, n_heads, seq_len, n_blocks, 3),
+            f"omega expected {(bsz, n_heads, seq_len, n_blocks, 3)}, got {tuple(omega.shape)}",
+            code="OMEGA_SHAPE",
+        )
         in_dtype = q.dtype
         use_bf16 = in_dtype == torch.bfloat16
         io_dtype = torch.bfloat16 if use_bf16 else torch.float32
@@ -556,6 +565,15 @@ def cuda_su2_holonomy_transport(
     """Execute fused sm_86 CUDA SU(2) holonomy scan + covariant (Q, K[, V]) transport (V2 zero-permute fast path)."""
     require_ok(map_mode in ("exp", "cayley"), f"unknown map_mode {map_mode!r}", code="BAD_MAP_MODE")
     require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
+    require_ok(q.ndim == 4 and k.shape == q.shape and v.shape == q.shape, "q, k, v must share [B, H, T, D]", code="QKV_SHAPE")
+    bsz, n_heads, seq_len, d_head = q.shape
+    require_ok(d_head > 0 and d_head % 4 == 0, f"d_head must be positive multiple of 4, got {d_head}", code="QKV_DIM")
+    n_blocks = d_head // 4
+    require_ok(
+        tuple(omega.shape) == (bsz, n_heads, seq_len, n_blocks, 3),
+        f"omega expected {(bsz, n_heads, seq_len, n_blocks, 3)}, got {tuple(omega.shape)}",
+        code="OMEGA_SHAPE",
+    )
     use_tanh = angle_scale is not None
     scale_val = 1.0 if angle_scale is None else float(angle_scale)
     lib = load_cuda_library()
@@ -566,8 +584,6 @@ def cuda_su2_holonomy_transport(
         return q_rot, k_rot, (v_raw if transport_v else v), pi_path
 
     require_ok(map_mode == "exp", "V1 fiber-major library only supports map_mode='exp'", code="BAD_MAP_MODE")
-    bsz, n_heads, seq_len, d_head = q.shape
-    n_blocks = d_head // 4
     raw_f = omega.permute(0, 1, 3, 2, 4).contiguous().reshape(bsz * n_heads * n_blocks, seq_len, 3)
     q_f = _to_fiber_major_4(q, n_blocks)
     k_f = _to_fiber_major_4(k, n_blocks)

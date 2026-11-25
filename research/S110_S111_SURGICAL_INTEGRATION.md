@@ -119,7 +119,7 @@ int holosphere_hopf_s3_cayley2x2_bwd_f32(
 
 ### 3.1 `S111` (`WeftAuditShell`) — Surgical Live-Adaptation Wrapper Over Verified Backbones
 
-Inspecting `track-s111-weft-geosphere-fusion/s111_weft_geosphere.py` confirms a critical architectural advantage: `WeftGeosphereModel` attaches its Shell-3 `NarrowPlateBank` (`d_plate = 128`, decoupled `W_base + A @ B` avoiding the `bf16 < 0.5-ULP` destructive merge cliff) and non-generative `FactorizedWeftSmithRewriter` (`0.99M`, `has_lm_head = False`, `can_call_tools = False`, `can_mutate_core = False`) **strictly downstream of a frozen SHA-256-pinned Core (`core.forward_hidden`)**. It does **not** hard-wire `H10b_Geosphere_Full`!
+The `Track S111` `WeftGeosphereModel` design (mirrored in `holosphere/models/weft_shell.py`) confirms a critical architectural advantage: it attaches its Shell-3 `NarrowPlateBank` (`d_plate = 128`, decoupled `W_base + A @ B` avoiding the `bf16 < 0.5-ULP` destructive merge cliff) and non-generative `FactorizedWeftSmithRewriter` (`0.99M`, `has_lm_head = False`, `can_call_tools = False`, `can_mutate_core = False`) **strictly downstream of a frozen SHA-256-pinned Core (`core.forward_hidden`)**. It does **not** hard-wire `H10b_Geosphere_Full`!
 
 To keep `HoloSphere` lean and free of governance bloat:
 1. **Strict Backbone Decoupling:** `HoloSphereTransformer` stays a pure, minimal inference/training core exporting only `core_weights_sha256()` and hidden-state outputs. `WeftAuditShell` (`holosphere/models/weft_shell.py`) wraps *any* verified frozen Core — specifically prioritizing **`H10a_Shell1_Cayley2x2` (`#1` verified `S110` backbone)** and **`HoloSphere` (`S114` fused core)** rather than the falsified `H10b_Geosphere_Full`.

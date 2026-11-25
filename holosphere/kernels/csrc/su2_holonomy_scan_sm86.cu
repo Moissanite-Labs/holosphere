@@ -1,7 +1,7 @@
 // Bare-Metal NVIDIA Ampere (sm_86) Fused SU(2) Holonomy-Scan, Covariant (Q,K,V)
 // Parallel Transport, Inverse Un-Transport, & Spherical SLERP + Safe-Hopf Kernels.
 //
-// Track S114 (PREREG-S114-SILISPHERE-FUSED-ENTITY-V1) / silikernels sm_86 Foundry.
+// Moissanite Labs silikernels sm_86 Foundry — SU(2) Holonomy & Hypersphere Kernel Suite.
 //
 // Core Silicon-Geometry Isomorphism:
 //   1 unit quaternion q = (w, x, y, z) in SU(2) ~= S^3  <==>  1 CUDA float4 (LDG.E.128)
@@ -16,8 +16,8 @@
 //       m_s = Im(g_s * conj(U_s)) in R^3,
 //       S_t = sum_{s=t}^{T-1} m_s,
 //       dL/d(du_t) = conj(U_{t-1}) * (0, S_t) * U_t  (t > 0),  (0, S_0) * U_0  (t == 0).
-//   - Fused in-register spherical SLERP + non-antipodal acute-cone Safe-Hopf rotation
-//     uses single-pass warp-reduced rsqrtf (MUFU.RSQ) with smooth eps floor.
+//   - Fused in-register spherical SLERP + Hopf S^1 fiber rotation uses single-pass
+//     warp-reduced rsqrtf (MUFU.RSQ) with smooth eps floor and m2 < 1e-3 radial guard.
 //
 // Compile & zero-spill gate:
 //   nvcc -O3 -std=c++17 -arch=sm_86 --ptxas-options=-v --shared -Xcompiler -fPIC \
@@ -165,7 +165,7 @@ __device__ __forceinline__ float3 imag_mul_conj(float4 g, float4 u) {
     );
 }
 
-// Register-only Cody-Waite + Cephes minimax sincosf (< 1e-7 err, 0 B stack frame!)
+// Register-only Cody-Waite + Cephes minimax sincosf (0 B stack frame).
 __device__ __forceinline__ void sincosf_nospill(float x, float& s_out, float& c_out) {
     float qf = rintf(x * 0.63661977236758134308f);
     int q = __float2int_rn(qf);
@@ -576,7 +576,7 @@ void su2_holonomy_scan_qkv_bwd_sm86(
 }
 
 // ---------------------------------------------------------------------------
-// Kernels 3 & 4: Covariant Inverse Un-Transport O_cov = conj(U_t) * O_t (H14c)
+// Kernels 3 & 4: Covariant Inverse Un-Transport O_cov = conj(U_t) * O_t
 // Grid: dim3((N_total + 255) / 256), Block: dim3(256).
 // ---------------------------------------------------------------------------
 
@@ -844,7 +844,7 @@ void fused_spherical_slerp_hopf_bwd_sm86(
 }
 
 // ---------------------------------------------------------------------------
-// Kernels 7 & 8: Native Hopf-S^3 Quaternionic Residual Update (H6c Confirmed!)
+// Kernels 7 & 8: Native Hopf-S^3 Quaternionic Residual Update
 // Per 4-block: h_next = exp(tanh(d0)) * (normalize(1, d1, d2, d3) (x) h)
 // Single-pass float4 LDG.E.128 -> STG.E.128, 0 B spills, exact analytic backward!
 // ---------------------------------------------------------------------------
@@ -1452,9 +1452,8 @@ void fused_spherical_slerp_hopf_bwd_bf16_sm86(
 }
 
 // ---------------------------------------------------------------------------
-// V2 Kernels 20-27: Beltrami [C, K] = 0 Cayley2x2 (S110 #1 Winner) &
-// Zero-HBM-Epilogue Fused Hopf-S^3 + Cayley2x2 (FP32 & Native BF16 Direct I/O)
-// Exact ABI matching S110_S111_SURGICAL_INTEGRATION.md §2.3 & beltrami.py!
+// V2 Kernels 20-27: Beltrami [C, K] = 0 Cayley2x2 &
+// Zero-HBM-Epilogue Fused Hopf-S^3 + Cayley2x2 (FP32 & Native BF16 Direct I/O).
 // ---------------------------------------------------------------------------
 
 template <typename T_IO>
@@ -1583,7 +1582,22 @@ void holosphere_hopf_s3_cayley2x2_bwd_sm86(
 
 // ---------------------------------------------------------------------------
 // C ABI Launch Entrypoints (for PyTorch ctypes / C++ extension / silikernels)
+//
+// Contract:
+//   - Return codes: 0 on empty no-op (<= 0 batch/length/quads) or CUDA launch
+//     success; -1 on invalid arguments (bad d_model % 4, eps <= 0 / non-finite,
+//     or gridDim overflow); otherwise cudaGetLastError() cast to int.
+//   - Alignment & nullability: FP32 float4 pointers require 16-byte alignment.
+//     Optional Q/K/V and syndrome_errors pointers may be nullptr when unused;
+//     required inputs/outputs must be non-null device pointers.
+//   - Caller zero-init: grad_alpha_logit (SLERP backward) and syndrome_errors
+//     (A16 dequant) accumulate via atomicAdd and must be zeroed prior to launch.
+//   - Grid limit: BHTD entrypoints require n_blocks <= 262140 (gridDim.y <= 65535).
 // ---------------------------------------------------------------------------
+
+static inline bool _valid_eps(float eps) {
+    return isfinite(eps) && eps > 0.0f;
+}
 
 extern "C" {
 
@@ -1604,6 +1618,7 @@ int silisphere_su2_holonomy_fwd_f32(
     void* stream_ptr
 ) {
     if (n_fibers <= 0 || seq_len <= 0) return 0;
+    if (!_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     silisphere_sm86::su2_holonomy_scan_qkv_fwd_sm86<<<
         dim3(static_cast<unsigned>(n_fibers)),
@@ -1649,6 +1664,7 @@ int silisphere_su2_holonomy_bwd_f32(
     void* stream_ptr
 ) {
     if (n_fibers <= 0 || seq_len <= 0) return 0;
+    if (!_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     silisphere_sm86::su2_holonomy_scan_qkv_bwd_sm86<<<
         dim3(static_cast<unsigned>(n_fibers)),
@@ -1774,7 +1790,8 @@ int silisphere_spherical_slerp_hopf_fwd_f32(
     float eps,
     void* stream_ptr
 ) {
-    if (n_rows <= 0 || d_model <= 0 || (d_model & 3) != 0) return -1;
+    if (n_rows <= 0) return 0;
+    if (d_model <= 0 || (d_model & 3) != 0 || !_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     unsigned grid = static_cast<unsigned>((n_rows + 3) / 4);
     silisphere_sm86::fused_spherical_slerp_hopf_fwd_sm86<<<dim3(grid), dim3(128), 0, stream>>>(
@@ -1808,7 +1825,8 @@ int silisphere_spherical_slerp_hopf_bwd_f32(
     float eps,
     void* stream_ptr
 ) {
-    if (n_rows <= 0 || d_model <= 0 || (d_model & 3) != 0) return -1;
+    if (n_rows <= 0) return 0;
+    if (d_model <= 0 || (d_model & 3) != 0 || !_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     unsigned grid = static_cast<unsigned>((n_rows + 3) / 4);
     silisphere_sm86::fused_spherical_slerp_hopf_bwd_sm86<<<dim3(grid), dim3(128), 0, stream>>>(
@@ -1866,10 +1884,14 @@ int silisphere_su2_holonomy_bhtd_fwd_##SUFFIX(                                  
     float angle_scale, int use_tanh, float eps, void* stream_ptr                                   \
 ) {                                                                                                \
     if (bsz <= 0 || n_heads <= 0 || seq_len <= 0 || n_blocks <= 0) return 0;                       \
+    if (!_valid_eps(eps)) return -1;                                                               \
+    int64_t bh64 = static_cast<int64_t>(bsz) * static_cast<int64_t>(n_heads);                      \
+    int64_t gy64 = (static_cast<int64_t>(n_blocks) + silisphere_sm86::BHTD_F_GRP - 1) /            \
+                   silisphere_sm86::BHTD_F_GRP;                                                    \
+    if (bh64 > 2147483647LL || gy64 > 65535LL) return -1;                                          \
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);                                   \
-    unsigned gx = static_cast<unsigned>(bsz * n_heads);                                            \
-    unsigned gy = static_cast<unsigned>((n_blocks + silisphere_sm86::BHTD_F_GRP - 1) /             \
-                                        silisphere_sm86::BHTD_F_GRP);                              \
+    unsigned gx = static_cast<unsigned>(bh64);                                                     \
+    unsigned gy = static_cast<unsigned>(gy64);                                                     \
     silisphere_sm86::su2_holonomy_scan_qkv_bhtd_fwd_sm86<T_IO, CAYLEY_FLAG>                        \
         <<<dim3(gx, gy), dim3(silisphere_sm86::BHTD_THREADS), 0, stream>>>(                        \
             raw_omega, q_in, k_in, v_in, reinterpret_cast<float4*>(u_out), q_out, k_out, v_out,    \
@@ -1890,10 +1912,14 @@ int silisphere_su2_holonomy_bhtd_bwd_##SUFFIX(                                  
     float angle_scale, int use_tanh, float eps, void* stream_ptr                                   \
 ) {                                                                                                \
     if (bsz <= 0 || n_heads <= 0 || seq_len <= 0 || n_blocks <= 0) return 0;                       \
+    if (!_valid_eps(eps)) return -1;                                                               \
+    int64_t bh64 = static_cast<int64_t>(bsz) * static_cast<int64_t>(n_heads);                      \
+    int64_t gy64 = (static_cast<int64_t>(n_blocks) + silisphere_sm86::BHTD_F_GRP - 1) /            \
+                   silisphere_sm86::BHTD_F_GRP;                                                    \
+    if (bh64 > 2147483647LL || gy64 > 65535LL) return -1;                                          \
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);                                   \
-    unsigned gx = static_cast<unsigned>(bsz * n_heads);                                            \
-    unsigned gy = static_cast<unsigned>((n_blocks + silisphere_sm86::BHTD_F_GRP - 1) /             \
-                                        silisphere_sm86::BHTD_F_GRP);                              \
+    unsigned gx = static_cast<unsigned>(bh64);                                                     \
+    unsigned gy = static_cast<unsigned>(gy64);                                                     \
     silisphere_sm86::su2_holonomy_scan_qkv_bhtd_bwd_sm86<T_IO, CAYLEY_FLAG>                        \
         <<<dim3(gx, gy), dim3(silisphere_sm86::BHTD_THREADS), 0, stream>>>(                        \
             raw_omega, reinterpret_cast<const float4*>(u_path), q_in, k_in, v_in,                  \
@@ -1927,7 +1953,8 @@ int silisphere_spherical_slerp_hopf_fwd_bf16(
     float eps,
     void* stream_ptr
 ) {
-    if (n_rows <= 0 || d_model <= 0 || (d_model & 3) != 0) return -1;
+    if (n_rows <= 0) return 0;
+    if (d_model <= 0 || (d_model & 3) != 0 || !_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     unsigned grid = static_cast<unsigned>((n_rows + 3) / 4);
     silisphere_sm86::fused_spherical_slerp_hopf_fwd_bf16_sm86<<<dim3(grid), dim3(128), 0, stream>>>(
@@ -1953,7 +1980,8 @@ int silisphere_spherical_slerp_hopf_bwd_bf16(
     float eps,
     void* stream_ptr
 ) {
-    if (n_rows <= 0 || d_model <= 0 || (d_model & 3) != 0) return -1;
+    if (n_rows <= 0) return 0;
+    if (d_model <= 0 || (d_model & 3) != 0 || !_valid_eps(eps)) return -1;
     cudaStream_t stream = static_cast<cudaStream_t>(stream_ptr);
     unsigned grid = static_cast<unsigned>((n_rows + 3) / 4);
     silisphere_sm86::fused_spherical_slerp_hopf_bwd_bf16_sm86<<<dim3(grid), dim3(128), 0, stream>>>(

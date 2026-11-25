@@ -46,7 +46,12 @@ def _require_finite_float(val: Any, name: str, code: str) -> float:
     )
     fval = float(val)
     require_ok(math.isfinite(fval), f"{name} must be finite, got {val!r}", code=code)
-    return fval
+    return 0.0 if fval == 0.0 else fval
+
+
+def _require_str(val: Any, name: str, code: str) -> str:
+    require_ok(isinstance(val, str), f"{name} must be a str, got {type(val).__name__}", code=code)
+    return val
 
 
 @dataclass(frozen=True)
@@ -64,12 +69,27 @@ class HoloSphereStepTelemetry:
     norm_drift_max: float
     schema: str = TELEMETRY_SCHEMA
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "schema", _require_str(self.schema, "schema", "TEL_SCHEMA"))
+        object.__setattr__(self, "step_idx", _require_int_not_bool(self.step_idx, "step_idx", "TEL_STEP"))
+        object.__setattr__(self, "seq_len", _require_int_not_bool(self.seq_len, "seq_len", "TEL_SEQ"))
+        object.__setattr__(self, "batch_size", _require_int_not_bool(self.batch_size, "batch_size", "TEL_BATCH"))
+        object.__setattr__(self, "r_loops", _require_int_not_bool(self.r_loops, "r_loops", "TEL_RLOOPS"))
+        object.__setattr__(self, "backend", _require_str(self.backend, "backend", "TEL_BACKEND"))
+        object.__setattr__(self, "block_t", _require_int_not_bool(self.block_t, "block_t", "TEL_BLOCKT"))
+        object.__setattr__(self, "step_ms", _require_finite_float(self.step_ms, "step_ms", "TEL_STEP_MS"))
+        object.__setattr__(self, "tok_per_sec", _require_finite_float(self.tok_per_sec, "tok_per_sec", "TEL_TPS"))
+        object.__setattr__(self, "norm_drift_max", _require_finite_float(self.norm_drift_max, "norm_drift_max", "TEL_DRIFT"))
+        self.validate()
+
     def validate(self) -> None:
-        require_ok(self.schema == TELEMETRY_SCHEMA, f"unexpected telemetry schema {self.schema!r}", code="TEL_SCHEMA")
+        schema = _require_str(self.schema, "schema", "TEL_SCHEMA")
+        require_ok(schema == TELEMETRY_SCHEMA, f"unexpected telemetry schema {schema!r}", code="TEL_SCHEMA")
         step_idx = _require_int_not_bool(self.step_idx, "step_idx", "TEL_STEP")
         seq_len = _require_int_not_bool(self.seq_len, "seq_len", "TEL_SEQ")
         batch_size = _require_int_not_bool(self.batch_size, "batch_size", "TEL_BATCH")
         r_loops = _require_int_not_bool(self.r_loops, "r_loops", "TEL_RLOOPS")
+        backend = _require_str(self.backend, "backend", "TEL_BACKEND")
         block_t = _require_int_not_bool(self.block_t, "block_t", "TEL_BLOCKT")
         step_ms = _require_finite_float(self.step_ms, "step_ms", "TEL_STEP_MS")
         tok_per_sec = _require_finite_float(self.tok_per_sec, "tok_per_sec", "TEL_TPS")
@@ -80,8 +100,8 @@ class HoloSphereStepTelemetry:
         require_ok(batch_size >= 1, f"batch_size must be >= 1, got {batch_size}", code="TEL_BATCH")
         require_ok(r_loops >= 1, f"r_loops must be >= 1, got {r_loops}", code="TEL_RLOOPS")
         require_ok(
-            self.backend in VALID_EXECUTION_BACKENDS,
-            f"backend must be one of {sorted(VALID_EXECUTION_BACKENDS)}, got {self.backend!r}",
+            backend in VALID_EXECUTION_BACKENDS,
+            f"backend must be one of {sorted(VALID_EXECUTION_BACKENDS)}, got {backend!r}",
             code="TEL_BACKEND",
         )
         require_ok(
@@ -125,14 +145,13 @@ class HoloSphereStepTelemetry:
             seq_len=data["seq_len"],
             batch_size=data["batch_size"],
             r_loops=data["r_loops"],
-            backend=str(data["backend"]),
+            backend=data["backend"],
             block_t=data["block_t"],
             step_ms=data["step_ms"],
             tok_per_sec=data["tok_per_sec"],
             norm_drift_max=data["norm_drift_max"],
-            schema=str(data.get("schema", TELEMETRY_SCHEMA)),
+            schema=data.get("schema", TELEMETRY_SCHEMA),
         )
-        obj.validate()
         return obj
 
 
@@ -142,7 +161,8 @@ class HoloSphereTuningProfile:
 
     Fail-closed contract:
       - Never mutates model weights or WeftAuditShell thresholds.
-      - Strictly typed execution schedule hints stamped into CS-08 provenance via ``profile_sha256()``.
+      - Numeric fields are canonicalized in ``__post_init__`` so ``0`` and ``0.0`` always
+        produce identical ``profile_sha256()`` provenance digests.
     """
 
     backend: str = "auto"
@@ -152,15 +172,32 @@ class HoloSphereTuningProfile:
     r_loops_override: int | None = None
     schema: str = TUNING_PROFILE_SCHEMA
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "schema", _require_str(self.schema, "schema", "TUNE_SCHEMA"))
+        object.__setattr__(self, "backend", _require_str(self.backend, "backend", "TUNE_BACKEND"))
+        object.__setattr__(self, "block_t", _require_int_not_bool(self.block_t, "block_t", "TUNE_BLOCKT"))
+        if self.microbatch_size is not None:
+            object.__setattr__(self, "microbatch_size", _require_int_not_bool(self.microbatch_size, "microbatch_size", "TUNE_MBS"))
+        object.__setattr__(
+            self,
+            "inter_step_cooldown_ms",
+            _require_finite_float(self.inter_step_cooldown_ms, "inter_step_cooldown_ms", "TUNE_COOLDOWN"),
+        )
+        if self.r_loops_override is not None:
+            object.__setattr__(self, "r_loops_override", _require_int_not_bool(self.r_loops_override, "r_loops_override", "TUNE_RLOOPS"))
+        self.validate()
+
     def validate(self) -> None:
+        schema = _require_str(self.schema, "schema", "TUNE_SCHEMA")
         require_ok(
-            self.schema == TUNING_PROFILE_SCHEMA,
-            f"unexpected tuning profile schema {self.schema!r}",
+            schema == TUNING_PROFILE_SCHEMA,
+            f"unexpected tuning profile schema {schema!r}",
             code="TUNE_SCHEMA",
         )
+        backend = _require_str(self.backend, "backend", "TUNE_BACKEND")
         require_ok(
-            self.backend in VALID_TUNING_BACKENDS,
-            f"backend must be one of {sorted(VALID_TUNING_BACKENDS)}, got {self.backend!r}",
+            backend in VALID_TUNING_BACKENDS,
+            f"backend must be one of {sorted(VALID_TUNING_BACKENDS)}, got {backend!r}",
             code="TUNE_BACKEND",
         )
         block_t = _require_int_not_bool(self.block_t, "block_t", "TUNE_BLOCKT")
@@ -207,14 +244,13 @@ class HoloSphereTuningProfile:
         extra = set(data.keys()) - allowed
         require_ok(not extra, f"unexpected tuning profile fields: {sorted(extra)}", code="TUNE_FIELDS")
         obj = cls(
-            backend=str(data.get("backend", "auto")),
+            backend=data.get("backend", "auto"),
             block_t=data.get("block_t", 128),
             microbatch_size=data.get("microbatch_size", None),
             inter_step_cooldown_ms=data.get("inter_step_cooldown_ms", 0.0),
             r_loops_override=data.get("r_loops_override", None),
-            schema=str(data.get("schema", TUNING_PROFILE_SCHEMA)),
+            schema=data.get("schema", TUNING_PROFILE_SCHEMA),
         )
-        obj.validate()
         return obj
 
 

@@ -88,18 +88,18 @@ def cayley_acute_cos_sin(
     t_max: float = 0.8,
     tau: float = 2.0,
 ) -> tuple[float, float]:
-    """Exact rational Cayley rotation (c, s) = ((1-t^2)/(1+t^2), 2t/(1+t^2)) for |t| < 1.
+    """Rational Cayley rotation (c, s) = ((1-t^2)/(1+t^2), 2t/(1+t^2)) for |t| < 1.
 
-    Uses the pure-rational non-saturating schedule t_r = t_max * r / (r + tau) in [0, t_max):
+    Uses the pure-rational schedule t_r = t_max * r / (r + tau) in [0, t_max):
       - Zero transcendental cos/sin/tanh SFU ops (pure FMAs + 1 reciprocal in registers).
-      - Strictly increasing for every pass_idx >= 0 (never saturates in FP64/FP32).
+      - Strictly increasing over practical pass counts r >= 0.
       - Matches the Lean 4 acute-cone theorem (lean/HoloSphereInvariants.lean):
         c_r = (1 - t_r^2)/(1 + t_r^2) > (1 - t_max^2)/(1 + t_max^2) > 0 for all r >= 0,
-        permanently forbidding W10-OBS-31 antipodal phase sign-flips at arbitrary R_test.
+        permanently forbidding antipodal phase sign-flips at arbitrary R_test.
     """
     require_ok(pass_idx >= 0, f"pass_idx must be >= 0, got {pass_idx}", code="BAD_PASS_IDX")
-    require_ok(0.0 < t_max < 1.0, f"cayley_acute requires 0 < t_max < 1, got {t_max}", code="BAD_TMAX")
-    require_ok(tau > 0.0, f"tau must be > 0, got {tau}", code="BAD_TAU")
+    require_ok(math.isfinite(t_max) and 0.0 < t_max < 1.0, f"cayley_acute requires 0 < t_max < 1, got {t_max}", code="BAD_TMAX")
+    require_ok(math.isfinite(tau) and tau > 0.0, f"tau must be finite and > 0, got {tau}", code="BAD_TAU")
     t = t_max * (float(pass_idx) / (float(pass_idx) + tau))
     t2 = t * t
     inv = 1.0 / (1.0 + t2)
@@ -112,16 +112,19 @@ def cayley_decay_cos_sin(
     t_max: float = 0.8,
     tau: float = 2.0,
 ) -> tuple[float, float]:
-    """SFU-free decaying rational Cayley clock (phi_r -> 0 as r -> inf) for R_test >> R_train.
+    """SFU-free decaying rational Cayley clock (phi_r -> 0 monotonically as r -> inf).
 
     Uses t_r = t_max * tau / (r + tau) in (0, t_max] subset (0, 1):
-      - Strictly positive cosine floor c_r >= (1 - t_max^2)/(1 + t_max^2) > 0 (zero antipodal flip).
-      - Strictly decreasing distinct phases converging toward identity (c_r -> 1, s_r -> 0) so
-        cumulative phase drift Phi(R) stays bounded under deep test-time loop extrapolation.
+      - Per-pass cosine strictly bounded below: c_r >= (1 - t_max^2)/(1 + t_max^2) > 0
+        (zero antipodal flip on every pass r >= 0).
+      - Distinct strictly decreasing per-pass angles phi_r -> 0 (c_r -> 1, s_r -> 0) so
+        each deep test-time pass approaches identity rotation cleanly. (Note: the harmonic
+        sum of per-pass angles grows as ~2 * t_max * tau * ln(R); each pass rotation is
+        applied independently to ``core_out`` rather than composed cumulatively.)
     """
     require_ok(pass_idx >= 0, f"pass_idx must be >= 0, got {pass_idx}", code="BAD_PASS_IDX")
-    require_ok(0.0 < t_max < 1.0, f"cayley_decay requires 0 < t_max < 1, got {t_max}", code="BAD_TMAX")
-    require_ok(tau > 0.0, f"tau must be > 0, got {tau}", code="BAD_TAU")
+    require_ok(math.isfinite(t_max) and 0.0 < t_max < 1.0, f"cayley_decay requires 0 < t_max < 1, got {t_max}", code="BAD_TMAX")
+    require_ok(math.isfinite(tau) and tau > 0.0, f"tau must be finite and > 0, got {tau}", code="BAD_TAU")
     t = t_max * (tau / (float(pass_idx) + tau))
     t2 = t * t
     inv = 1.0 / (1.0 + t2)

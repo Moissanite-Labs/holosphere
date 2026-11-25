@@ -19,7 +19,7 @@ Our live RTX 3080 (`sm_86`) empirical telemetry exposed the exact cost of that d
 
 ## 2. The Silicon–Geometry Isomorphism (`NVIDIA Ampere sm_86`)
 
-On NVIDIA Ampere `sm_86`, the core algebraic geometry of a hyperspherical holonomy transformer maps 1-to-1 onto hardware execution primitives (mathematically associative algebraic identities verified in pure-`Init` `Lean 4.36.0`, with measured live RTX 3080 FP32 parity `<= 5.87e-6` and BF16 parity `<= 1.95e-3`):
+On NVIDIA Ampere `sm_86`, the core algebraic geometry of a hyperspherical holonomy transformer maps 1-to-1 onto hardware execution primitives: the **`36` in-repo pure-`Init` `Lean 4.36.0` theorems** (`lean/HoloSphereInvariants.lean`) certify the exact algebraic identities over integer quaternions `QuatZ` ($\mathbb{Z}$), while live RTX 3080 (`sm_86`) benchmarks separately measure empirical floating-point parity (`FP32 <= 5.87e-6`, `BF16 <= 1.95e-3`):
 
 | Mathematical Primitive ($SU(2) \cong S^3$) | Bare-Metal `sm_86` Silicon Primitive | Algebraic Identity / Hardware Property |
 | :--- | :--- | :--- |

@@ -7,7 +7,8 @@ name = "holosphere"
 version = "0.1.0"
 description = "Kernel-isomorphic SU(2) hypersphere transformer and bare-metal Ampere sm_86 quaternion holonomy operator suite"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
   { name = "Moissanite Labs" },
@@ -46,3 +47,6 @@ Repository = "https://github.com/Moissanite-Labs/holosphere"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["holosphere*"]
+
+[tool.setuptools.package-data]
+"holosphere.kernels" = ["csrc/*.cu", "csrc/*.md"]

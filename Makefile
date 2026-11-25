@@ -11,7 +11,7 @@ help:
 	@echo "  make bench-cpu     Run PREREG-S114 CPU preflight parity & gradcheck benchmark"
 	@echo "  make lean-verify   Verify pure-Init Lean 4.36.0 certificate (36 theorems, 0 sorryAx)"
 	@echo "  make lean-test     Run 3-mode isolated -I Lean R5 verification test suite"
-	@echo "  make cuda-build    Compile bare-metal sm_86 CUDA kernel (verifying 0 B register spill)"
+	@echo "  make cuda-build    Compile bare-metal sm_86 CUDA kernel (printing ptxas register & spill stats)"
 	@echo "  make audit-hygiene Verify 0 bare asserts, 0 /home/ leaks, 0 weights, 0 __pycache__"
 	@echo "  make clean         Remove build artifacts and bytecode"
 
