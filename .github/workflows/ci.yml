@@ -35,3 +35,13 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -I -B holosphere/benchmarks/prereg_s114_suite.py --cpu-preflight --json
+      - name: Verify pure-Init Lean 4.36.0 invariants (when lean is installed)
+        env:
+          CUDA_VISIBLE_DEVICES: ""
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          if python3 -I -B -c "import shutil, sys; sys.exit(0 if shutil.which('lean') else 1)"; then
+            python3 -I -B lean/verify_holosphere_lean.py --check --json
+          else
+            echo "lean binary not installed on runner; skipping live Lean 4.36.0 check"
+          fi

@@ -26,6 +26,7 @@ from holosphere.geometry.hopf import (
     spearman_rank_corr,
 )
 from holosphere.geometry.su2 import (
+    cayley_su2,
     quat_conj,
     quat_inverse_untransport,
     quat_left_transport,
@@ -46,6 +47,7 @@ __all__ = [
     "build_s3_width_schedule",
     "cayley_2x2_rotate",
     "cayley_acute_cos_sin",
+    "cayley_su2",
     "darboux_intertwining_diagnostic",
     "hopf_clock_angle",
     "hopf_fiber_rotate",

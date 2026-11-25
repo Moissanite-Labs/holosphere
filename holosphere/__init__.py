@@ -20,6 +20,7 @@ from holosphere.telemetry import HoloSphereStepTelemetry, HoloSphereTuningProfil
 
 if TYPE_CHECKING:
     from holosphere.geometry.beltrami import Cayley2x2AutogradFn, cayley_2x2_rotate
+    from holosphere.geometry.su2 import cayley_su2
     from holosphere.kernels.dispatch import (
         available_backends,
         fused_spherical_step,
@@ -41,6 +42,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "available_backends": ("holosphere.kernels.dispatch", "available_backends"),
     "build_preset_config": ("holosphere.models.config", "build_preset_config"),
     "cayley_2x2_rotate": ("holosphere.geometry.beltrami", "cayley_2x2_rotate"),
+    "cayley_su2": ("holosphere.geometry.su2", "cayley_su2"),
     "fused_spherical_step": ("holosphere.kernels.dispatch", "fused_spherical_step"),
     "safe_hopf_clock": ("holosphere.kernels.dispatch", "safe_hopf_clock"),
     "su2_holonomy_transport": ("holosphere.kernels.dispatch", "su2_holonomy_transport"),
@@ -75,6 +77,7 @@ __all__ = [
     "build_preset_config",
     "build_step_telemetry",
     "cayley_2x2_rotate",
+    "cayley_su2",
     "fused_spherical_step",
     "require_ok",
     "safe_hopf_clock",

@@ -71,13 +71,14 @@ HoloSphere retains **only** mechanisms that survived preregistered RTX 3080 (`ml
 
 ## Repository Layout
 
-- **`holosphere/geometry/`** — Exact $SU(2) \cong S^3$ quaternion algebra (`su2.py`), Hopf fibration / `H6c` residual / `acute_cone` & rational `cayley_acute` Safe-Hopf clocks / $S^3$ width schedules (`hopf.py`), Beltrami `[C,K]=0` 2×2 Cayley blocks (`beltrami.py`), $SO(k)$-equivariant Poloidal Bingham (`bingham.py`), and Darboux dark-mode diagnostics (`darboux.py`).
+- **`holosphere/geometry/`** — Exact $SU(2) \cong S^3$ quaternion algebra (`su2.py`, incl. SFU-free pure-rational `cayley_su2`), Hopf fibration / `H6c` residual / `acute_cone` & rational `cayley_acute` Safe-Hopf clocks / $S^3$ width schedules (`hopf.py`), Beltrami `[C,K]=0` 2×2 Cayley blocks with exact closed-form reverse-mode adjoint (`beltrami.py`), $SO(k)$-equivariant Poloidal Bingham (`bingham.py`), and Darboux dark-mode diagnostics (`darboux.py`).
+- **`holosphere/telemetry.py`** — Pure-stdlib one-way `SiliSense -> HoloSphere` step-boundary telemetry & tuning contract (`HoloSphereStepTelemetry`, `HoloSphereTuningProfile`; zero `torch`, zero sensor I/O).
 - **`holosphere/kernels/`** — Unified typed dispatch (`dispatch.py`), custom reverse-mode additive suffix-sum PyTorch adjoint (`torch_ops.py`), Ampere `sm_86` CUDA/PTX bridge (`cuda_bridge.py`, `csrc/`), Triton bridge (`triton_bridge.py`), and `siliquant` $A_{16}$/$E_8$ register quantization bridge (`siliquant_bridge.py`).
-- **`holosphere/models/`** — Flagship `HoloSphereTransformer` (`transformer.py`), kernel-isomorphic `HoloSphereBlock` & `CovariantSU2Attention` (`blocks.py`), named presets across `S106–S114` (`config.py`), matched baselines (`controls.py`: `RoPE-2D`, `LieRE-4D`, `Block4-RandOrtho`, `DiagonalDarcyEMA`), `MarkovMTP8Head` / `ParallelMTP8Head` / `LocalARByteDecoder` (`heads.py`), `WeftAuditShell` Composed Triple Gate + Shell-3 Merkle ledger (`weft_shell.py`), and batched `nullmodem` $E_8$ cell bus (`nullmodem_e8.py`).
-- **`holosphere/benchmarks/`** — Deterministic $S_3$ / $A_5$ non-Abelian state tracking & Dyck bracket probes (`tasks.py`) and `PREREG-S114` CPU preflight + RTX 3080 harness (`prereg_s114_suite.py`).
+- **`holosphere/models/`** — Flagship `HoloSphereTransformer` (`transformer.py`, with opt-in batch-uniform variable-depth `r ∈ {1..4}` & step telemetry hooks), kernel-isomorphic `HoloSphereBlock` & `CovariantSU2Attention` (`blocks.py`), named presets across `S106–S114` plus Phase-2 surgical `s114_stage1a_cayley` / `s114_stage1b_cayley_vardepth` (`config.py`), matched baselines (`controls.py`: `RoPE-2D`, `LieRE-4D`, `Block4-RandOrtho`, `DiagonalDarcyEMA`), `MarkovMTP8Head` / `ParallelMTP8Head` / `LocalARByteDecoder` (`heads.py`), `WeftAuditShell` Composed Triple Gate + Shell-3 Merkle ledger (`weft_shell.py`), and batched `nullmodem` $E_8$ cell bus (`nullmodem_e8.py`).
+- **`holosphere/benchmarks/` & `benchmarks/`** — Deterministic $S_3$ / $A_5$ non-Abelian state tracking & Dyck bracket probes (`tasks.py`), `PREREG-S114` CPU preflight + RTX 3080 harness (`prereg_s114_suite.py`), and `PREREG-S114` Amendment-1 `S107`/`S108` convergence harness (`benchmarks/s114_s107_s108_convergence.py`).
 - **`docs/MANIFESTO.md`** — Founding Silicon–Geometry Isomorphism Manifesto (`float4` = $SU(2)$ quaternion, pure-additive backward adjoint, rational Cayley Safe-Hopf law, and `PREREG-S114` falsifiable kill gates).
-- **`lean/`** — Pure-`Init` `Lean 4.36.0` mechanized algebraic invariants (`HoloSphereInvariants.lean`, zero Mathlib, zero `sorryAx`).
-- **`research/`** — Complete verified Law-4 scorecard ([`SCORECARD_S106_S114.md`](research/SCORECARD_S106_S114.md)) and deep kernel-transformer isomorphism specification ([`ARCHITECTURE_KERNEL_ISOMORPHISM.md`](research/ARCHITECTURE_KERNEL_ISOMORPHISM.md)).
+- **`lean/`** — Pure-`Init` `Lean 4.36.0` mechanized algebraic invariants (`HoloSphereInvariants.lean` — `30` public theorems across all 5 pillars, `0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings; verify via `make lean-verify`).
+- **`research/`** — Complete verified Law-4 scorecard ([`SCORECARD_S106_S114.md`](research/SCORECARD_S106_S114.md)), deep kernel-transformer isomorphism specification ([`ARCHITECTURE_KERNEL_ISOMORPHISM.md`](research/ARCHITECTURE_KERNEL_ISOMORPHISM.md)), and Phase-2 `S110`/`S111`/`S115` surgical integration spec ([`S110_S111_SURGICAL_INTEGRATION.md`](research/S110_S111_SURGICAL_INTEGRATION.md)).
 - **`tests/`** — Assertion-free 3-mode isolated `-I` CPU test suite (`-I -B`, `-I -O -B`, `-I -B -W error`), FP64 `gradcheck`, exact algebraic checks, and repo hygiene gate.
 
 ---
@@ -93,6 +94,9 @@ make test-3mode
 
 # Run PREREG-S114 CPU preflight (FP64 gradcheck + covariant QKV + acute-cone + CS-08 parity)
 make bench-cpu
+
+# Verify all 30 pure-Init Lean 4.36.0 invariants (requires lean 4.36.0)
+make lean-verify
 ```
 
 ```python

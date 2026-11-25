@@ -23,6 +23,7 @@ from holosphere.geometry.beltrami import (
     cayley_2x2_rotate,
     run_beltrami_helicity_diagnostic,
 )
+from holosphere.geometry.su2 import cayley_su2, su2_exp
 from holosphere.models import (
     HoloSphereTransformer,
     analytical_forward_flops_per_token,
@@ -280,6 +281,33 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
                 self.assertTrue(bool(torch.isfinite(logits_ext).all().item()))
                 self.assertEqual(tr_ext["r_loops_used"], r_ext)
                 self.assertEqual(len(tr_ext["pass_states"]), r_ext + 1)
+
+    def test_04_cayley_su2_sfu_free_unit_norm_antipodal_bound_and_gradcheck(self) -> None:
+        gen = torch.Generator(device="cpu").manual_seed(404)
+        # 1. Exact unit-sphere identity ||cayley_su2(omega)|| == 1 for arbitrary omega in R^3
+        w = torch.randn((3, 5, 3), generator=gen, dtype=torch.float64) * 1.5
+        q = cayley_su2(w)
+        self.assertEqual(q.shape, (3, 5, 4))
+        norms = torch.linalg.vector_norm(q, dim=-1)
+        self.assertLess(float(torch.max(torch.abs(norms - 1.0)).item()), 1e-14)
+
+        # 2. Exact identity cayley_su2(w) == su2_exp(2 * atan(||w||) * w / ||w||)
+        r = torch.linalg.vector_norm(w, dim=-1, keepdim=True)
+        w_equiv = (2.0 * torch.atan(r) / r) * w
+        q_exp = su2_exp(w_equiv, eps=1e-12)
+        self.assertLess(float(torch.max(torch.abs(q - q_exp)).item()), 1e-13)
+
+        # 3. Antipodal avoidance: ||w|| <= t_max = 0.8 => w_0 >= (1 - 0.64)/(1 + 0.64) = 9/41 > 0
+        t_max = 0.8
+        w_bounded = w / torch.clamp(r / t_max, min=1.0)
+        q_b = cayley_su2(w_bounded)
+        floor = (1.0 - t_max * t_max) / (1.0 + t_max * t_max)
+        self.assertGreaterEqual(float(q_b[..., 0].min().item()), floor - 1e-14)
+
+        # 4. Strict FP64 finite-difference gradcheck (< 1e-10)
+        w_gc = (torch.randn((2, 4, 3), generator=gen, dtype=torch.float64) * 0.5).detach().requires_grad_(True)
+        ok = torch.autograd.gradcheck(cayley_su2, (w_gc,), eps=1e-6, atol=1e-10, rtol=1e-8)
+        self.assertTrue(ok)
 
 
 if __name__ == "__main__":

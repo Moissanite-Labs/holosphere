@@ -78,6 +78,26 @@ def su2_exp(omega: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     return safe_unit_norm(q, dim=-1, eps=eps)
 
 
+def cayley_su2(omega: torch.Tensor) -> torch.Tensor:
+    """SFU-free pure-rational Cayley map su(2) -> SU(2) ~= S^3 (0 trig, 0 rsqrt).
+
+    Maps omega in R^3 to:
+      q_cayley(omega) = ((1 - ||omega||^2) / (1 + ||omega||^2),  2 * omega / (1 + ||omega||^2))
+    Satisfies the exact algebraic unit-sphere identity (1 - r^2)^2 + 4 r^2 == (1 + r^2)^2,
+    so ||q_cayley(omega)||_2 == 1 identically for all omega in R^3. The antipodal pole -I
+    is bounded strictly away whenever ||omega||_2 <= t_max < 1 (giving w >= (1-t_max^2)/(1+t_max^2) > 0),
+    unifying S^1 (``cayley_acute_cos_sin``), SO(2) (``Cayley2x2AutogradFn``), and SU(2) (``cayley_su2``).
+    """
+    require_ok(omega.shape[-1] == 3, f"cayley_su2 requires last dim == 3, got {omega.shape[-1]}", code="SU2_SHAPE")
+    compute_dtype = torch.float64 if omega.dtype == torch.float64 else torch.float32
+    wf = omega.to(compute_dtype)
+    r2 = torch.sum(wf * wf, dim=-1, keepdim=True)
+    inv_d = 1.0 / (1.0 + r2)
+    q0 = (1.0 - r2) * inv_d
+    q_vec = (2.0 * inv_d) * wf
+    return torch.cat((q0, q_vec), dim=-1).to(omega.dtype)
+
+
 def su2_parallel_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: float = 1e-6) -> torch.Tensor:
     """Associative Hillis-Steele right-accumulating prefix product along ``seq_dim``.
 
