@@ -10,9 +10,19 @@ from holosphere.errors import HoloSphereError, require_ok
 
 VALID_WIDTH_PROFILES = frozenset({"cylinder", "polar", "equatorial", "permuted_pol", "permuted_eq"})
 VALID_POS_MODES = frozenset({"su2_holonomy", "rope2d", "liere4d", "block4_rand_ortho"})
+VALID_SU2_MAP_MODES = frozenset({"exp", "cayley"})
 VALID_RESIDUAL_MODES = frozenset({"hopf_s3", "slerp", "flat"})
 VALID_LOOP_MODES = frozenset(
-    {"none", "safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot", "flat"}
+    {
+        "none",
+        "safe_hopf_acute",
+        "safe_hopf_cayley_acute",
+        "safe_hopf_cayley_decay",
+        "clifford_coprime",
+        "sphere_noclock",
+        "sphere_randrot",
+        "flat",
+    }
 )
 
 
@@ -28,6 +38,7 @@ class HoloSphereConfig:
     base_d_ff: int = 864
     width_profile: str = "cylinder"
     pos_mode: str = "su2_holonomy"
+    su2_map_mode: str = "exp"
     transport_v: bool = True
     angle_scale: float = 0.75
     residual_mode: str = "hopf_s3"
@@ -74,6 +85,7 @@ class HoloSphereConfig:
         require_ok(self.base_d_ff >= 16 and self.base_d_ff % 16 == 0, "base_d_ff must be >= 16 and multiple of 16", code="CFG_DFF")
         require_ok(self.width_profile in VALID_WIDTH_PROFILES, f"unknown width_profile {self.width_profile!r}", code="CFG_PROFILE")
         require_ok(self.pos_mode in VALID_POS_MODES, f"unknown pos_mode {self.pos_mode!r}", code="CFG_POS")
+        require_ok(self.su2_map_mode in VALID_SU2_MAP_MODES, f"unknown su2_map_mode {self.su2_map_mode!r}", code="CFG_SU2_MAP")
         require_ok(self.residual_mode in VALID_RESIDUAL_MODES, f"unknown residual_mode {self.residual_mode!r}", code="CFG_RESID")
         require_ok(self.loop_mode in VALID_LOOP_MODES, f"unknown loop_mode {self.loop_mode!r}", code="CFG_LOOP")
         if self.loop_mode != "none":
@@ -119,6 +131,19 @@ def build_preset_config(preset_name: str, **overrides: Any) -> HoloSphereConfig:
             n_layers=12,
             base_d_ff=864,
             pos_mode="su2_holonomy",
+            transport_v=True,
+            residual_mode="hopf_s3",
+            ngpt_qk_norm=True,
+            loop_mode="none",
+        ),
+        "s114_cayley_su2_unlooped": HoloSphereConfig(
+            arm_name="s114_cayley_su2_unlooped",
+            d_model=320,
+            n_heads=8,
+            n_layers=12,
+            base_d_ff=864,
+            pos_mode="su2_holonomy",
+            su2_map_mode="cayley",
             transport_v=True,
             residual_mode="hopf_s3",
             ngpt_qk_norm=True,

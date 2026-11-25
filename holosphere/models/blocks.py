@@ -19,7 +19,9 @@ from holosphere.geometry.beltrami import CayleyBlock2x2SO
 from holosphere.geometry.bingham import VectorProximalPoloidalBingham
 from holosphere.geometry.su2 import safe_unit_norm
 from holosphere.kernels.dispatch import (
+    cayley_2x2_step,
     fused_spherical_step,
+    hopf_s3_cayley_2x2_step,
     su2_holonomy_transport,
     su2_inverse_untransport,
 )
@@ -76,6 +78,7 @@ class CovariantSU2Attention(nn.Module):
         n_heads: int,
         *,
         pos_mode: str = "su2_holonomy",
+        su2_map_mode: str = "exp",
         transport_v: bool = True,
         angle_scale: float = 0.75,
         ngpt_qk_norm: bool = True,
@@ -84,10 +87,12 @@ class CovariantSU2Attention(nn.Module):
     ) -> None:
         super().__init__()
         require_ok(d_model % n_heads == 0, "d_model must be divisible by n_heads", code="ATTN_DIM")
+        require_ok(su2_map_mode in ("exp", "cayley"), f"unknown su2_map_mode {su2_map_mode!r}", code="ATTN_MAP")
         self.d_model = d_model
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
         self.pos_mode = pos_mode
+        self.su2_map_mode = su2_map_mode
         self.transport_v = bool(transport_v)
         self.angle_scale = float(angle_scale)
         self.ngpt_qk_norm = bool(ngpt_qk_norm)
@@ -101,6 +106,7 @@ class CovariantSU2Attention(nn.Module):
         self.w_omega: nn.Linear | None = None
         self.liere: LieRE4DAbelianPositional | None = None
         self.rand_ortho: Block4RandOrthoPositional | None = None
+        self._sqk_block_tied = pos_mode in ("su2_holonomy", "liere4d", "block4_rand_ortho")
 
         if pos_mode == "su2_holonomy":
             require_ok(self.d_head % 4 == 0, "su2_holonomy requires d_head % 4 == 0", code="ATTN_QUAT_DIM")
@@ -118,7 +124,11 @@ class CovariantSU2Attention(nn.Module):
             raise ValueError(f"Unknown pos_mode: {pos_mode!r}")
 
         if self.ngpt_qk_norm:
-            self.sqk = nn.Parameter(torch.ones(1, n_heads, 1, self.d_head))
+            if self._sqk_block_tied:
+                # Block-4 tied sqk preserves exact SU(2) 4-block equivariance: L(U)(c_b * q_b) == c_b * L(U)(q_b).
+                self.sqk: nn.Parameter | None = nn.Parameter(torch.ones(1, n_heads, 1, self.n_blocks, 1))
+            else:
+                self.sqk = nn.Parameter(torch.ones(1, n_heads, 1, self.d_head))
         else:
             self.sqk = None
 
@@ -134,8 +144,7 @@ class CovariantSU2Attention(nn.Module):
             omega = (
                 self.w_omega(x)
                 .view(bsz, seq_len, self.n_heads, self.n_blocks, 3)
-                .permute(0, 2, 1, 3, 4)
-                .contiguous()
+                .transpose(1, 2)
             )
             q, k, v, pi_path = su2_holonomy_transport(
                 q,
@@ -145,6 +154,7 @@ class CovariantSU2Attention(nn.Module):
                 angle_scale=self.angle_scale,
                 transport_v=self.transport_v,
                 backend=self.backend,
+                map_mode=self.su2_map_mode,
             )
         elif self.pos_mode == "rope2d":
             q = apply_rope_2d(q)
@@ -159,8 +169,12 @@ class CovariantSU2Attention(nn.Module):
             k = self.rand_ortho(k)
 
         if self.ngpt_qk_norm and self.sqk is not None:
-            q = safe_unit_norm(q, dim=-1, eps=1e-4) * self.sqk
-            k = safe_unit_norm(k, dim=-1, eps=1e-4) * self.sqk
+            if self._sqk_block_tied:
+                sqk_exp = self.sqk.expand(1, self.n_heads, 1, self.n_blocks, 4).reshape(1, self.n_heads, 1, self.d_head)
+            else:
+                sqk_exp = self.sqk
+            q = safe_unit_norm(q, dim=-1, eps=1e-4) * sqk_exp
+            k = safe_unit_norm(k, dim=-1, eps=1e-4) * sqk_exp
             scale = math.sqrt(float(self.d_head))
         else:
             scale = 1.0 / math.sqrt(float(self.d_head))
@@ -183,6 +197,7 @@ class HoloSphereBlock(nn.Module):
         d_ff: int,
         *,
         pos_mode: str = "su2_holonomy",
+        su2_map_mode: str = "exp",
         transport_v: bool = True,
         angle_scale: float = 0.75,
         residual_mode: str = "hopf_s3",
@@ -207,6 +222,7 @@ class HoloSphereBlock(nn.Module):
             d_model,
             n_heads,
             pos_mode=pos_mode,
+            su2_map_mode=su2_map_mode,
             transport_v=transport_v,
             angle_scale=angle_scale,
             ngpt_qk_norm=ngpt_qk_norm,
@@ -236,6 +252,7 @@ class HoloSphereBlock(nn.Module):
         )
 
     def forward(self, h: torch.Tensor) -> torch.Tensor:
+        cayley_done = False
         if self.residual_mode == "slerp":
             require_ok(self.alpha_a_logit is not None and self.alpha_m_logit is not None, "slerp alphas missing", code="BLK_STATE")
             h = safe_unit_norm(h, dim=-1, eps=1e-4)
@@ -250,7 +267,12 @@ class HoloSphereBlock(nn.Module):
             h = fused_spherical_step(h, self.attn(self.norm1(h)), mode="hopf_s3", backend=self.backend)
             if self.darcy is not None:
                 h = self.darcy(h)
-            h = fused_spherical_step(h, self.mlp(self.norm2(h)), mode="hopf_s3", backend=self.backend)
+            mlp_out = self.mlp(self.norm2(h))
+            if self.cayley is not None and not self.cayley.data_dependent:
+                h = hopf_s3_cayley_2x2_step(h, mlp_out, self.cayley.base_omega, backend=self.backend)
+                cayley_done = True
+            else:
+                h = fused_spherical_step(h, mlp_out, mode="hopf_s3", backend=self.backend)
         else:
             require_ok(self.norm1 is not None and self.norm2 is not None, "RMSNorm missing", code="BLK_STATE")
             h = h + self.attn(self.norm1(h))
@@ -258,8 +280,8 @@ class HoloSphereBlock(nn.Module):
                 h = self.darcy(h)
             h = h + self.mlp(self.norm2(h))
 
-        if self.cayley is not None:
-            h = self.cayley(h)
+        if self.cayley is not None and not cayley_done:
+            h = cayley_2x2_step(h, self.cayley.compute_omega(h), backend=self.backend)
         if self.bingham is not None:
             h, _ = self.bingham(h)
         return h

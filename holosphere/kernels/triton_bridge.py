@@ -58,7 +58,8 @@ class _TritonSU2HolonomyFn(torch.autograd.Function):
         ctx.has_v = v_w is not None
         ctx.save_for_backward(raw_w, u_w, q_w, k_w, v_w if v_w is not None else torch.empty(0, device=raw_w.device))
         v_ret = vo_w.to(in_dtype) if vo_w is not None else torch.empty(0, device=raw_w.device, dtype=in_dtype)
-        return qo_w.to(in_dtype), ko_w.to(in_dtype), v_ret, u_w.to(in_dtype)
+        # Preserve SU(2) holonomy path U in FP32 to prevent BF16 S^3 manifold drift (W10-OBS-36).
+        return qo_w.to(in_dtype), ko_w.to(in_dtype), v_ret, u_w
 
     @staticmethod
     def backward(ctx: Any, dq_out: torch.Tensor | None, dk_out: torch.Tensor | None, dv_out: torch.Tensor | None, du_out: torch.Tensor | None):  # type: ignore[override]

@@ -7,18 +7,64 @@ covariant (Q, K, V) parallel transport with zero HBM intermediate round-trips.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import torch
 
 from holosphere.errors import require_ok
 
+SLERP_ANTIPODE_ETA = 1e-3
+
+
+def _require_pos_eps(eps: float) -> None:
+    require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
+
+
+class _AntipodalGuardedUnitNormFn(torch.autograd.Function):
+    """Smooth unit projection with Grok-4.7 P0 O(eps^-3) antipodal radial-term guard.
+
+    Forward:  y = x / sqrt(||x||^2 + eps^2)
+    Backward: inv = rsqrt(||x||^2 + eps^2); drops the -<g, x> * inv^3 * x radial term
+              whenever ||x||^2 < eta (default 1e-3) so near-antipodal points just above
+              eps^2 cannot trigger O(eps^-3) (~1e12) gradient spikes while preserving
+              exact derivatives everywhere ||x||^2 >= eta.
+    """
+
+    @staticmethod
+    def forward(ctx: Any, x: torch.Tensor, eps: float, eta: float) -> torch.Tensor:  # type: ignore[override]
+        x2 = torch.sum(x * x, dim=-1, keepdim=True)
+        inv_x = torch.rsqrt(x2 + (eps * eps))
+        ctx.eps = eps
+        ctx.eta = eta
+        ctx.save_for_backward(x, x2, inv_x)
+        return x * inv_x
+
+    @staticmethod
+    def backward(ctx: Any, grad_out: torch.Tensor) -> tuple[torch.Tensor, None, None]:  # type: ignore[override]
+        x, x2, inv_x = ctx.saved_tensors
+        dot_gx = torch.sum(grad_out * x, dim=-1, keepdim=True)
+        inv_x3 = inv_x * inv_x * inv_x
+        radial = torch.where(x2 >= ctx.eta, dot_gx * inv_x3, torch.zeros_like(dot_gx))
+        return grad_out * inv_x - radial * x, None, None
+
 
 def safe_unit_norm(x: torch.Tensor, dim: int = -1, eps: float = 1e-4) -> torch.Tensor:
     """Smooth unit-sphere projection x / sqrt(||x||_2^2 + eps^2) (zero 0/0 NaN at x=0)."""
-    require_ok(eps > 0.0, f"eps must be > 0, got {eps}", code="BAD_EPS")
+    _require_pos_eps(eps)
     denom = torch.sqrt(torch.sum(x * x, dim=dim, keepdim=True) + (eps * eps))
     return x / denom
+
+
+def safe_quat_unit_norm(q: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    """Unit-quaternion projection returning identity (1, 0, 0, 0) if ||q||^2 <= eps^2 (prevents sticky 0-fiber)."""
+    _require_pos_eps(eps)
+    require_ok(q.shape[-1] == 4, "safe_quat_unit_norm requires last dim == 4", code="QUAT_SHAPE")
+    n2 = torch.sum(q * q, dim=-1, keepdim=True)
+    normed = q * torch.rsqrt(torch.clamp(n2, min=eps * eps))
+    id_q = torch.zeros_like(q)
+    id_q[..., 0] = 1.0
+    return torch.where(n2 <= (eps * eps), id_q, normed)
 
 
 def safe_slerp_step(
@@ -26,18 +72,21 @@ def safe_slerp_step(
     delta: torch.Tensor,
     alpha: torch.Tensor | float,
     eps: float = 1e-4,
+    antipode_eta: float = SLERP_ANTIPODE_ETA,
 ) -> torch.Tensor:
     """Antipodal-safe spherical update Norm(cos(alpha) * Norm(h) + sin(alpha) * Norm(delta)).
 
-    Smooth floor sqrt(||x||^2 + eps^2) keeps forward and backward finite even at exact
-    antipodal cancellation delta == -h with alpha == pi/4.
+    Uses ``_AntipodalGuardedUnitNormFn`` so near-antipodal cancellation (||mixed||^2 < eta)
+    skips the O(eps^-3) radial backward term (eliminating ~1e12 spikes just above eps^2)
+    while preserving exact analytical derivatives everywhere ||mixed||^2 >= eta.
     """
-    require_ok(eps > 0.0, f"eps must be > 0, got {eps}", code="BAD_EPS")
+    _require_pos_eps(eps)
+    require_ok(math.isfinite(antipode_eta) and antipode_eta > 0.0, f"antipode_eta must be > 0, got {antipode_eta}", code="BAD_ETA")
     h_u = safe_unit_norm(h, dim=-1, eps=eps)
     d_u = safe_unit_norm(delta, dim=-1, eps=eps)
     alpha_t = alpha if isinstance(alpha, torch.Tensor) else torch.tensor(float(alpha), device=h.device, dtype=h.dtype)
     mixed = torch.cos(alpha_t) * h_u + torch.sin(alpha_t) * d_u
-    return safe_unit_norm(mixed, dim=-1, eps=eps)
+    return _AntipodalGuardedUnitNormFn.apply(mixed, float(eps), float(antipode_eta))
 
 
 def quat_mul(p: torch.Tensor, q: torch.Tensor) -> torch.Tensor:
@@ -69,7 +118,7 @@ def su2_exp(omega: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     Uses smooth norm theta = sqrt(||omega||^2 + eps^2) so gradients remain smooth at omega = 0.
     """
     require_ok(omega.shape[-1] == 3, f"su2_exp requires last dim == 3, got {omega.shape[-1]}", code="SU2_SHAPE")
-    require_ok(eps > 0.0, f"eps must be > 0, got {eps}", code="BAD_EPS")
+    _require_pos_eps(eps)
     theta_sq = torch.sum(omega * omega, dim=-1, keepdim=True)
     theta = torch.sqrt(theta_sq + (eps * eps))
     w = torch.cos(theta)
@@ -107,6 +156,7 @@ def su2_parallel_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: float
     and covariant value un-transport computes:
       Pi(t)^{-1} * Pi(s) = (du(s+1) * ... * du(t))^{-1}.
     """
+    _require_pos_eps(eps)
     require_ok(delta_u.shape[-1] == 4, "su2_parallel_prefix_scan requires last dim == 4", code="QUAT_SHAPE")
     ndim = delta_u.ndim
     dim = seq_dim if seq_dim >= 0 else ndim + seq_dim
@@ -115,12 +165,12 @@ def su2_parallel_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: float
     seq_len = moved.shape[1]
     require_ok(seq_len >= 1, "sequence length must be >= 1", code="EMPTY_SEQ")
 
-    cur = safe_unit_norm(moved, dim=-1, eps=eps)
+    cur = safe_quat_unit_norm(moved, eps=eps)
     offset = 1
     while offset < seq_len:
         left = cur[:, :-offset]
         right = cur[:, offset:]
-        prod = safe_unit_norm(quat_mul(left, right), dim=-1, eps=eps)
+        prod = safe_quat_unit_norm(quat_mul(left, right), eps=eps)
         cur = torch.cat((cur[:, :offset], prod), dim=1)
         offset *= 2
     return cur.movedim(1, dim) if dim != 1 else cur
@@ -128,6 +178,7 @@ def su2_parallel_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: float
 
 def su2_sequential_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: float = 1e-6) -> torch.Tensor:
     """Exact sequential reference Pi(t) = Pi(t-1) * du(t) for numerical parity verification."""
+    _require_pos_eps(eps)
     require_ok(delta_u.shape[-1] == 4, "su2_sequential_prefix_scan requires last dim == 4", code="QUAT_SHAPE")
     ndim = delta_u.ndim
     dim = seq_dim if seq_dim >= 0 else ndim + seq_dim
@@ -136,9 +187,9 @@ def su2_sequential_prefix_scan(delta_u: torch.Tensor, seq_dim: int = 1, eps: flo
     seq_len = moved.shape[1]
     require_ok(seq_len >= 1, "sequence length must be >= 1", code="EMPTY_SEQ")
 
-    outs: list[torch.Tensor] = [safe_unit_norm(moved[:, 0], dim=-1, eps=eps)]
+    outs: list[torch.Tensor] = [safe_quat_unit_norm(moved[:, 0], eps=eps)]
     for t in range(1, seq_len):
-        outs.append(safe_unit_norm(quat_mul(outs[-1], moved[:, t]), dim=-1, eps=eps))
+        outs.append(safe_quat_unit_norm(quat_mul(outs[-1], moved[:, t]), eps=eps))
     res = torch.stack(outs, dim=1)
     return res.movedim(1, dim) if dim != 1 else res
 
@@ -170,6 +221,7 @@ def verify_su2_interval_holonomy(
     eps: float = 1e-6,
 ) -> dict[str, Any]:
     """Verify exact path-ordered interval identity Pi(s)^{-1} Pi(t) == du(s+1) * ... * du(t)."""
+    _require_pos_eps(eps)
     seq_len = delta_u.shape[1]
     require_ok(0 <= s < t < seq_len, f"require 0 <= s < t < {seq_len}, got s={s}, t={t}", code="BAD_INTERVAL")
     pi = su2_parallel_prefix_scan(delta_u, seq_dim=1, eps=eps)

@@ -14,7 +14,12 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint as grad_checkpoint
 
 from holosphere.errors import require_ok
-from holosphere.geometry.hopf import build_s3_width_schedule, cayley_acute_cos_sin, hopf_clock_angle
+from holosphere.geometry.hopf import (
+    build_s3_width_schedule,
+    cayley_acute_cos_sin,
+    cayley_decay_cos_sin,
+    hopf_clock_angle,
+)
 from holosphere.geometry.su2 import safe_unit_norm
 from holosphere.kernels.dispatch import _resolve_backend, fused_spherical_step
 from holosphere.models.blocks import HoloSphereBlock
@@ -64,6 +69,7 @@ class HoloSphereTransformer(nn.Module):
                 cfg.n_heads,
                 d_ff,
                 pos_mode=cfg.pos_mode,
+                su2_map_mode=cfg.su2_map_mode,
                 transport_v=cfg.transport_v,
                 angle_scale=cfg.angle_scale,
                 residual_mode=cfg.residual_mode,
@@ -118,7 +124,14 @@ class HoloSphereTransformer(nn.Module):
 
         self.use_sphere_head = (cfg.residual_mode == "slerp") or (
             cfg.loop_mode
-            in ("safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot")
+            in (
+                "safe_hopf_acute",
+                "safe_hopf_cayley_acute",
+                "safe_hopf_cayley_decay",
+                "clifford_coprime",
+                "sphere_noclock",
+                "sphere_randrot",
+            )
         )
         if self.use_sphere_head:
             self.final_norm: RMSNorm | None = None
@@ -315,6 +328,22 @@ class HoloSphereTransformer(nn.Module):
                         eps=1e-4,
                         backend=active_backend,
                     )
+                elif self.cfg.loop_mode == "safe_hopf_cayley_decay":
+                    alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
+                    c_val, s_val = cayley_decay_cos_sin(
+                        r,
+                        t_max=self.cfg.cayley_acute_t_max,
+                        tau=self.cfg.acute_tau,
+                    )
+                    h = fused_spherical_step(
+                        h,
+                        core_out,
+                        alpha_r,
+                        mode="safe_hopf_cayley_loop",
+                        c_s=(c_val, s_val),
+                        eps=1e-4,
+                        backend=active_backend,
+                    )
                 elif self.cfg.loop_mode == "clifford_coprime":
                     alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
                     phi_val = hopf_clock_angle(r, clock_law="unaliased_coprime", r_train=self.cfg.r_train)
@@ -434,7 +463,7 @@ def analytical_forward_flops_per_token(
             + passes * cfg.n_core * _layer_flops(eff_dff)
             + cfg.n_suffix * _layer_flops(eff_dff)
         )
-        if cfg.loop_mode in ("safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime"):
+        if cfg.loop_mode in ("safe_hopf_acute", "safe_hopf_cayley_acute", "safe_hopf_cayley_decay", "clifford_coprime"):
             core_flops += passes * (6 * d)
         elif cfg.loop_mode == "sphere_randrot":
             core_flops += passes * (2 * d * d)

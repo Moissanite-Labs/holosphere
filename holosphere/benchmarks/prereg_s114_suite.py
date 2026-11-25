@@ -2,11 +2,11 @@
 """PREREG-S114 CPU Preflight & RTX 3080 Benchmark Suite (H14a / H14b / H14c).
 
 CPU preflight mode (`--cpu-preflight`) executes strictly on CPU (zero GPU touch) and verifies:
-  1. Forward & reverse-mode adjoint parity of SU(2) holonomy scan (`max_err < 1e-6`, FP64 gradcheck).
-  2. Exact covariant (Q, K, V) parallel-transport identity vs explicit O(T^2) path-ordered attention.
-  3. Non-antipodal acute-cone Safe-Hopf clock (cos(phi_r) > 0 for all r=0..63, fixing W10-OBS-31).
-  4. Exact CS-08 parameter & analytical FLOP parity between HoloSphere and RoPE-2D baselines.
-  5. Deterministic S_3 / A_5 group state-tracking and Weft Shell-3 Merkle rollback receipts.
+  1. Forward & reverse-mode adjoint numerical parity of SU(2) holonomy scan (`max_err < 1e-10`, FP64 gradcheck).
+  2. Algebraic covariant (Q, K, V) parallel-transport identity vs explicit O(T^2) path-ordered attention.
+  3. Non-antipodal acute-cone / rational Cayley Safe-Hopf clocks (cos(phi_r) > 0 for all r=0..63, fixing W10-OBS-31).
+  4. CS-08 parameter & analytical FLOP parity between HoloSphere and RoPE-2D baselines.
+  5. Deterministic S_3 / A_5 non-Abelian state-tracking probes (orientation-preserving 2D_3 / +-phase-insensitive 2I readouts on GPU H14c) and Weft Shell-3 Merkle rollback receipts.
 
 GPU benchmark mode (`--gpu-bench`) is staged ready for RTX 3080 once the GPU lease is free.
 Zero bare assert statements; 3-mode isolated -I parity compliant.

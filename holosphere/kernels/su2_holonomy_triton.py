@@ -356,9 +356,9 @@ if TRITON_AVAILABLE:
             dw2 = sinc * gq_y + rc * w2
             dw3 = sinc * gq_z + rc * w3
             if USE_TANH:
-                dw1 = dw1 * angle_scale * (1.0 - th1 * th1)
-                dw2 = dw2 * angle_scale * (1.0 - th2 * th2)
-                dw3 = dw3 * angle_scale * (1.0 - th3 * th3)
+                dw1 = tl.where(tl.abs(r1) <= 10.0, dw1 * angle_scale * (1.0 - th1 * th1), 0.0)
+                dw2 = tl.where(tl.abs(r2) <= 10.0, dw2 * angle_scale * (1.0 - th2 * th2), 0.0)
+                dw3 = tl.where(tl.abs(r3) <= 10.0, dw3 * angle_scale * (1.0 - th3 * th3), 0.0)
             tl.store(d_raw_ptr + r_off + 0, dw1, mask=mask)
             tl.store(d_raw_ptr + r_off + 1, dw2, mask=mask)
             tl.store(d_raw_ptr + r_off + 2, dw3, mask=mask)

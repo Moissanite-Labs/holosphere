@@ -9,13 +9,13 @@
 
 ## The Silicon–Geometry Isomorphism (`NVIDIA Ampere sm_86`)
 
-| Mathematical Primitive ($SU(2) \cong S^3$) | Bare-Metal `sm_86` Silicon Primitive | Exact Hardware / Algebraic Guarantee |
+| Mathematical Primitive ($SU(2) \cong S^3$) | Bare-Metal `sm_86` Silicon Primitive | Algebraic Identity / Hardware Guarantee (`FP32 <= 5.87e-6`) |
 | :--- | :--- | :--- |
-| **1 Unit Quaternion** $q=(w,x,y,z) \in SU(2)$ | **1 `float4` (`LDG.E.128`) Register Quad** | 128-bit load -> 4 FP32 regs; Hamilton product = **16 FMAs in registers** (`0` HBM, `0` SMEM); Euler 4-square norm conservation |
-| **Associative Prefix Holonomy** $\Pi_t = \prod_{s \le t} q_s$ | **1 Warp (`32` lanes) × 5 `__shfl_up_sync`** | 5-step Hillis–Steele scan (`0 B` spills), identical to $O(1)$-state streaming recurrence via Lean-checked $(pq)r = p(qr)$ |
-| **Non-Abelian Reverse-Mode Adjoint** $\partial\mathcal{L}/\partial u_t$ | **5 `__shfl_down_sync` FP32 Additions** | Exact pullback $S_t = \sum_{j \ge t} g_j \otimes \overline{\Pi_j}$, $\partial\mathcal{L}/\partial u_t = \overline{\Pi_{t-1}} \otimes S_t \otimes \Pi_t$ (**0 quaternion multiplies in backward scan!**) |
-| **Covariant $(Q,K,V)$ Transport (`H14c`)** | **Same Register Quad $\Pi_t$ + $\overline{\Pi_t}$** | $\tilde{Q}_t,\tilde{K}_t,\tilde{V}_t = L(\Pi_t)(Q_t,K_t,V_t)$ and $O_t^{\text{cov}} = L(\Pi_t^{-1}) O_t = \sum_s w_{ts} L(\Pi_t^{-1}\Pi_s) V_s$ (**0 extra scans**) |
-| **Safe-Hopf Loop Clock (`W10-OBS-31`)** | **SFU-Free Rational Cayley FMAs** | $c = \frac{1-t^2}{1+t^2} > 0,\; s = \frac{2t}{1+t^2}$ ($|t| < 1$): zero `sin`/`cos` SFU ops, permanently forbids `R_test = 6` antipodal flip |
+| **1 Unit Quaternion** $q=(w,x,y,z) \in SU(2)$ | **1 `float4` (`LDG.E.128`) Register Quad** | 128-bit load -> 4 FP32 regs; Hamilton product = **16 FMAs in registers** (`0` HBM, `0` SMEM); Euler 4-square norm conservation + SFU-free `cayley_su2` |
+| **Associative Prefix Holonomy** $\Pi_t = \prod_{s \le t} q_s$ | **1 Warp (`32` lanes) × 5 `__shfl_up_sync`** | Mathematically associative 5-step Hillis–Steele scan (**`27/27` kernels `0 B` spills**), algebraically equivalent to $O(1)$-state streaming recurrence via Lean-checked $(pq)r = p(qr)$ |
+| **Non-Abelian Reverse-Mode Adjoint** $\partial\mathcal{L}/\partial u_t$ | **5 `__shfl_down_sync` FP32 Additions** | Exact algebraic pullback $S_t = \sum_{j \ge t} \operatorname{Im}(g_j \otimes \overline{\Pi_j})$, $\partial\mathcal{L}/\partial u_t = \overline{\Pi_{t-1}} \otimes (0, S_t) \otimes \Pi_t$ (**0 quaternion multiplies in backward scan!**) |
+| **Covariant $(Q,K,V)$ Transport (`H14c`)** | **Same Register Quad $\Pi_t$ + $\overline{\Pi_t}$** | $\tilde{Q}_t,\tilde{K}_t,\tilde{V}_t = L(\Pi_t)(Q_t,K_t,V_t)$ and $O_t^{\text{cov}} = L(\Pi_t^{-1}) O_t = \sum_s w_{ts} L(\Pi_t^{-1}\Pi_s) V_s$ (**0 extra scans**, block-4 tied `sqk`) |
+| **Safe-Hopf Loop Clocks (`W10-OBS-31`)** | **SFU-Free Rational Cayley FMAs** | `cayley_acute` & `cayley_decay` ($\phi_r \to 0$): $c = \frac{1-t^2}{1+t^2} > 0,\; s = \frac{2t}{1+t^2}$ ($|t| < 1$): zero `sin`/`cos` SFU ops, permanently forbids `R_test = 6` antipodal flip |
 | **Quantized Weight & Wire Bridge** | **`siliquant` $A_{16}$ / $E_8$ Register Bridge** | `1 LOP3 + 5 POPC` `[16,11,4]` syndrome + batched Block-8 $E_8$ `RAM==WIRE==HASH` cells (`112` bits/state at $M=4$) |
 
 ---
@@ -62,10 +62,10 @@ HoloSphere retains **only** mechanisms that survived preregistered RTX 3080 (`ml
 | **`S107 H7c`** | Orthogonal per-pass looped core (`2+4×3+2 = 16` eff. layers) | **`PARTIAL`** | **`-9.44%` (`z=-42.46`)** vs unclocked `SphereLoop-NoClock`, **`-12.53%`** vs `Unlooped-16L` (`2×` params). Uncovered **`W10-OBS-31`** (`R_test=6` antipodal flip $\phi_5 = 10\pi/11 \approx \pi$) — fixed here by **`acute_cone` / `cayley_acute`**! | `Foundation-0/aletheia#105` |
 | **`S108 H8c2`** | `Markov-MTP8` coupled multi-token draft head | **`CONFIRMED`** *(vs Parallel)* | **`-19.34%` (`z=-63.31`)** TF BPB vs `Parallel-MTP8` (`3.7008` vs `4.5879`) and **`-12.37%`** less unrolled exposure-bias drift vs `LocalAR`. | `Foundation-0/aletheia#106` |
 | **`S108 H8c3`** | Block-8 $E_8$ `nullmodem` `RAM==WIRE==HASH` cell bus | **`PARTIAL`** | **`99.74%`** field acc / **`98.96%`** exact acc in **`32` payload bits** (`100%` SHA-256). Batched framing (`BatchedNullModemCell`, $M \ge 4$) amortizes total wire to `112` bits/state `< 144` (`ABIOS/3`). | `Foundation-0/aletheia#106` |
-| **`S109 H9a–d`** | Raw-deflate learnability obstruction & TerraCore Bingham plates | **`H9a CONFIRMED`**, `H9b–d FALSIFIED` | `13.95×` neural unpredictability jump on raw-deflate (`0.00%` R2 exact decompression); `MHPlate` `100.00%` English & Arabic IR recovery; `0/18` `CS-21` leaks. | `track-s109` (Zone-B verified) |
-| **`S110 H10a`** | Pruned 4-operator Geosphere-Net (`Cayley2x2`, `BinghamProx`, `DarcyEMA`) | **Live (`H10a` complete)** | `Cayley2x2` cuts `T=512` BPB `-3.94%` (`2.3033` vs `2.3976`) & `T=1024` (`2.5610` vs `2.6592`); `BinghamProx` (`M1-H1 = 1.874`) & `DarcyEMA` (`1.621`) break below the `2.0` loop-drift wall. | `track-s110` |
-| **`S112`** | Natural-Systems Stage-B Conservation Laws in Pure-`Init` `Lean 4.36.0` | **`VERIFIED` (`34/34` thms)** | **`34/34`** universal pure-`Init` Lean 4 theorems (`0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`) covering Homeostasis, Turing, Beltrami `[C,K]=0`, Murray/Physarum, and Darboux/Hopf. | `Foundation-0/aletheia#103` |
-| **`S114` (`H14a–c`)** | Fused `sm_86` `SU(2)` Holonomy-Scan + Covariant `(Q,K,V)` + Unified Entity | **CPU Preflight `PASS`** | `0` bare `assert`s, FP64 `gradcheck` PASS, exact covariant `(Q,K,V)` match `< 1e-12`, ready for bare-metal RTX 3080 equal-wall-clock (`CS-08`) & `mJ/tok` evaluation. | `PREREG-S114` / `Moissanite-Labs/silikernels` |
+| **`S109 H9a–d`** | Raw-deflate learnability obstruction & TerraCore Bingham plates | **`H9a CONFIRMED`**, `H9b–d FALSIFIED` | `13.95×` neural unpredictability jump on raw-deflate (`0.00%` R2 exact decompression); `MHPlate` `100.00%` English & Arabic IR recovery; `0/18` `CS-21` leaks. | `Foundation-0/aletheia#107` |
+| **`S110 H10a/b`** | Pruned 4-operator Geosphere-Net (`42/42` live runs) | `H10a PARTIAL`, `H10b FALSIFIED` | **`H10a_Shell1_Cayley2x2` `#1/14`** (`2.3033` vs `2.3976` `-3.94%`, `z=+3.82`, `[C,K]=0`); `H10b_Geosphere_Full` falsified (`2.6976`, `0/4` LOSO). | `track-s110` |
+| **`S112` + `lean/`** | Pure-`Init` `Lean 4.36.0` Conservation & HoloSphere Invariants | **`VERIFIED` (`34 + 36` thms)** | **`34/34`** `S112` + **`36/36`** `holosphere/lean/HoloSphereInvariants.lean` (`0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings). | `aletheia#103` / `lean/` |
+| **`S114` (`H14a` + `V2`)** | Fused `sm_86` `SU(2)` Holonomy + `Cayley2x2` + `cayley_su2` | **`H14a CONFIRMED` + `V2` Live** | **`27/27` `0 B`-spill `sm_86` kernels**: **`0.6313×` `RoPE-2D-nGPT`** (`71.57 ms`, **`-13.4%` VRAM**, **`-40.1%` `mJ/tok` at `1.431 mJ/tok`**, `6.35×` vs eager `H7b`); `Cayley2x2` **`9.77×`**, `Hopf-S^3+Cayley2x2` **`28.58×`**; measured FP32 parity `<= 5.87e-6` (`97.69%` STREAM Triad). | `PREREG-S114` / `Moissanite-Labs/silikernels` |
 
 ---
 
@@ -77,7 +77,7 @@ HoloSphere retains **only** mechanisms that survived preregistered RTX 3080 (`ml
 - **`holosphere/models/`** — Flagship `HoloSphereTransformer` (`transformer.py`, with opt-in batch-uniform variable-depth `r ∈ {1..4}` & step telemetry hooks), kernel-isomorphic `HoloSphereBlock` & `CovariantSU2Attention` (`blocks.py`), named presets across `S106–S114` plus Phase-2 surgical `s114_stage1a_cayley` / `s114_stage1b_cayley_vardepth` (`config.py`), matched baselines (`controls.py`: `RoPE-2D`, `LieRE-4D`, `Block4-RandOrtho`, `DiagonalDarcyEMA`), `MarkovMTP8Head` / `ParallelMTP8Head` / `LocalARByteDecoder` (`heads.py`), `WeftAuditShell` Composed Triple Gate + Shell-3 Merkle ledger (`weft_shell.py`), and batched `nullmodem` $E_8$ cell bus (`nullmodem_e8.py`).
 - **`holosphere/benchmarks/` & `benchmarks/`** — Deterministic $S_3$ / $A_5$ non-Abelian state tracking & Dyck bracket probes (`tasks.py`), `PREREG-S114` CPU preflight + RTX 3080 harness (`prereg_s114_suite.py`), and `PREREG-S114` Amendment-1 `S107`/`S108` convergence harness (`benchmarks/s114_s107_s108_convergence.py`).
 - **`docs/MANIFESTO.md`** — Founding Silicon–Geometry Isomorphism Manifesto (`float4` = $SU(2)$ quaternion, pure-additive backward adjoint, rational Cayley Safe-Hopf law, and `PREREG-S114` falsifiable kill gates).
-- **`lean/`** — Pure-`Init` `Lean 4.36.0` mechanized algebraic invariants (`HoloSphereInvariants.lean` — `30` public theorems across all 5 pillars, `0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings; verify via `make lean-verify`).
+- **`lean/`** — Pure-`Init` `Lean 4.36.0` mechanized algebraic invariants (`HoloSphereInvariants.lean` — `36` public theorems across all 5 pillars, `0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` warnings; verify via `make lean-verify`).
 - **`research/`** — Complete verified Law-4 scorecard ([`SCORECARD_S106_S114.md`](research/SCORECARD_S106_S114.md)), deep kernel-transformer isomorphism specification ([`ARCHITECTURE_KERNEL_ISOMORPHISM.md`](research/ARCHITECTURE_KERNEL_ISOMORPHISM.md)), and Phase-2 `S110`/`S111`/`S115` surgical integration spec ([`S110_S111_SURGICAL_INTEGRATION.md`](research/S110_S111_SURGICAL_INTEGRATION.md)).
 - **`tests/`** — Assertion-free 3-mode isolated `-I` CPU test suite (`-I -B`, `-I -O -B`, `-I -B -W error`), FP64 `gradcheck`, exact algebraic checks, and repo hygiene gate.
 
@@ -95,7 +95,7 @@ make test-3mode
 # Run PREREG-S114 CPU preflight (FP64 gradcheck + covariant QKV + acute-cone + CS-08 parity)
 make bench-cpu
 
-# Verify all 30 pure-Init Lean 4.36.0 invariants (requires lean 4.36.0)
+# Verify all 36 pure-Init Lean 4.36.0 invariants (requires lean 4.36.0)
 make lean-verify
 ```
 

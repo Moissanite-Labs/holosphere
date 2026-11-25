@@ -31,6 +31,7 @@ def hopf_s3_residual_step(x: torch.Tensor, delta: torch.Tensor, eps: float = 1e-
       out = g * quat_mul(u, x)
     """
     d = x.shape[-1]
+    require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
     require_ok(d % 4 == 0, f"hopf_s3_residual_step requires D % 4 == 0, got {d}", code="HOPF_DIM")
     require_ok(x.shape == delta.shape, "x and delta must share identical shape", code="HOPF_SHAPE")
     orig_shape = x.shape
@@ -105,6 +106,28 @@ def cayley_acute_cos_sin(
     return (1.0 - t2) * inv, (2.0 * t) * inv
 
 
+def cayley_decay_cos_sin(
+    pass_idx: int,
+    *,
+    t_max: float = 0.8,
+    tau: float = 2.0,
+) -> tuple[float, float]:
+    """SFU-free decaying rational Cayley clock (phi_r -> 0 as r -> inf) for R_test >> R_train.
+
+    Uses t_r = t_max * tau / (r + tau) in (0, t_max] subset (0, 1):
+      - Strictly positive cosine floor c_r >= (1 - t_max^2)/(1 + t_max^2) > 0 (zero antipodal flip).
+      - Strictly decreasing distinct phases converging toward identity (c_r -> 1, s_r -> 0) so
+        cumulative phase drift Phi(R) stays bounded under deep test-time loop extrapolation.
+    """
+    require_ok(pass_idx >= 0, f"pass_idx must be >= 0, got {pass_idx}", code="BAD_PASS_IDX")
+    require_ok(0.0 < t_max < 1.0, f"cayley_decay requires 0 < t_max < 1, got {t_max}", code="BAD_TMAX")
+    require_ok(tau > 0.0, f"tau must be > 0, got {tau}", code="BAD_TAU")
+    t = t_max * (tau / (float(pass_idx) + tau))
+    t2 = t * t
+    inv = 1.0 / (1.0 + t2)
+    return (1.0 - t2) * inv, (2.0 * t) * inv
+
+
 def hopf_fiber_rotate_cs(x: torch.Tensor, c: torch.Tensor | float, s: torch.Tensor | float) -> torch.Tensor:
     """Apply exact O(d) isoclinic Hopf fiber rotation from precomputed (cos, sin) = (c, s)."""
     d = x.shape[-1]
@@ -149,6 +172,9 @@ def hopf_clock_angle(
         return float(phi_max * (float(pass_idx) / (float(pass_idx) + tau)))
     if clock_law == "cayley_acute":
         c, s = cayley_acute_cos_sin(pass_idx, t_max=t_max, tau=tau)
+        return float(math.atan2(s, c))
+    if clock_law == "cayley_decay":
+        c, s = cayley_decay_cos_sin(pass_idx, t_max=t_max, tau=tau)
         return float(math.atan2(s, c))
     if clock_law == "unaliased_coprime":
         return 2.0 * math.pi * float(pass_idx) / 11.0

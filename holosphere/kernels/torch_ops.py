@@ -14,15 +14,20 @@ Implements the exact mathematical oracle for ``H14a``, ``H14b``, and ``H14c``, i
 
 from __future__ import annotations
 
+import math
+
 import torch
 
 from holosphere.errors import require_ok
+from holosphere.geometry.beltrami import cayley_2x2_rotate
 from holosphere.geometry.hopf import hopf_fiber_rotate, hopf_fiber_rotate_cs, hopf_s3_residual_step
 from holosphere.geometry.su2 import (
+    cayley_su2,
     quat_conj,
     quat_inverse_untransport,
     quat_left_transport,
     quat_mul,
+    safe_quat_unit_norm,
     safe_slerp_step,
     su2_exp,
     su2_parallel_prefix_scan,
@@ -45,9 +50,14 @@ class SU2UnitPrefixScanFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, delta_u: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:  # type: ignore[override]
         # delta_u: [..., T, n_blocks, 4] with seq dim == -3
+        require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
         require_ok(delta_u.ndim >= 3 and delta_u.shape[-1] == 4, "delta_u must be [..., T, n_blocks, 4]", code="SCAN_SHAPE")
-        norm = torch.sqrt(torch.sum(delta_u * delta_u, dim=-1, keepdim=True) + (eps * eps))
+        n2 = torch.sum(delta_u * delta_u, dim=-1, keepdim=True)
+        norm = torch.sqrt(n2 + (eps * eps))
         u_hat = delta_u / norm
+        id_q = torch.zeros_like(u_hat)
+        id_q[..., 0] = 1.0
+        u_hat = torch.where(n2 <= (eps * eps), id_q, u_hat)
         pi = su2_parallel_prefix_scan(u_hat, seq_dim=-3, eps=eps)
         ctx.save_for_backward(u_hat, norm, pi)
         return pi
@@ -88,17 +98,24 @@ def torch_su2_holonomy_transport(
     transport_v: bool = False,
     eps: float = 1e-6,
     use_custom_adjoint: bool = True,
+    map_mode: str = "exp",
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Exact differentiable PyTorch reference for fused SU(2) holonomy scan + covariant transport.
+    """Differentiable PyTorch reference for fused SU(2) holonomy scan + covariant transport.
 
     Args:
       q, k, v: [B, H, T, D] with D % 4 == 0 (n_blocks = D // 4).
       omega:   [B, H, T, n_blocks, 3] Lie-algebra su(2) generator.
       angle_scale: If not None, maps omega -> angle_scale * tanh(omega); else uses raw omega.
       transport_v: If True (H14c), also left-transports V by Pi(t) for full covariant attention.
+      map_mode: ``"exp"`` (su2_exp) or ``"cayley"`` (SFU-free rational cayley_su2).
     Returns:
-      (q_rot, k_rot, v_rot, pi_path) where pi_path has shape [B, H, T, n_blocks, 4].
+      (q_rot, k_rot, v_rot, pi_path) where pi_path has shape [B, H, T, n_blocks, 4] and is
+      preserved in FP32/FP64 even under BF16 inputs to eliminate S^3 manifold drift.
     """
+    require_ok(map_mode in ("exp", "cayley"), f"unknown map_mode {map_mode!r}", code="BAD_MAP_MODE")
+    require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
+    if angle_scale is not None:
+        require_ok(math.isfinite(angle_scale), f"angle_scale must be finite, got {angle_scale}", code="BAD_ANGLE_SCALE")
     require_ok(q.ndim == 4 and k.shape == q.shape and v.shape == q.shape, "q, k, v must share [B, H, T, D]", code="QKV_SHAPE")
     bsz, n_heads, seq_len, d_head = q.shape
     require_ok(d_head % 4 == 0, f"d_head must be divisible by 4, got {d_head}", code="QKV_DIM")
@@ -114,7 +131,7 @@ def torch_su2_holonomy_transport(
     w = omega.to(compute_dtype)
     if angle_scale is not None:
         w = float(angle_scale) * torch.tanh(w)
-    delta_u = su2_exp(w, eps=eps)
+    delta_u = cayley_su2(w) if map_mode == "cayley" else su2_exp(w, eps=eps)
     if use_custom_adjoint:
         pi_path = su2_unit_prefix_scan_fast(delta_u, eps=eps)
     else:
@@ -124,12 +141,20 @@ def torch_su2_holonomy_transport(
     q_rot = quat_left_transport(q, pi_cast)
     k_rot = quat_left_transport(k, pi_cast)
     v_rot = quat_left_transport(v, pi_cast) if transport_v else v
-    return q_rot, k_rot, v_rot, pi_cast
+    # Preserve pi_path in FP32/FP64 so S^3 manifold norm stays <= 1e-6 under BF16 autocast (W10-OBS-36).
+    return q_rot, k_rot, v_rot, pi_path
 
 
 def torch_su2_inverse_untransport(o: torch.Tensor, pi_path: torch.Tensor) -> torch.Tensor:
     """Exact differentiable inverse un-transport L(Pi^{-1}) O for H14c covariant attention."""
     return quat_inverse_untransport(o, pi_path.to(o.dtype))
+
+
+def torch_hopf_s3_cayley2x2_step(h: torch.Tensor, delta: torch.Tensor, omega: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    """Differentiable reference for V2 fused Hopf-S^3 residual + Beltrami Cayley2x2 epilogue."""
+    require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
+    z = hopf_s3_residual_step(h, delta, eps=eps)
+    return cayley_2x2_rotate(z, omega)
 
 
 def torch_fused_spherical_step(
@@ -142,7 +167,8 @@ def torch_fused_spherical_step(
     c_s: tuple[float, float] | None = None,
     eps: float = 1e-4,
 ) -> torch.Tensor:
-    """Exact PyTorch reference for the unified spherical/Hopf residual & loop update."""
+    """Differentiable PyTorch reference for the unified spherical/Hopf residual & loop update."""
+    require_ok(math.isfinite(eps) and eps > 0.0, f"eps must be finite and > 0, got {eps}", code="BAD_EPS")
     if mode == "hopf_s3":
         return hopf_s3_residual_step(h, delta, eps=min(eps, 1e-6))
     if mode == "slerp":

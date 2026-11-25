@@ -23,8 +23,17 @@ from holosphere.geometry.beltrami import (
     cayley_2x2_rotate,
     run_beltrami_helicity_diagnostic,
 )
-from holosphere.geometry.su2 import cayley_su2, su2_exp
+from holosphere.geometry.hopf import cayley_decay_cos_sin, hopf_clock_angle
+from holosphere.geometry.su2 import cayley_su2, safe_quat_unit_norm, safe_slerp_step, safe_unit_norm, su2_exp, su2_parallel_prefix_scan
+from holosphere.kernels.dispatch import (
+    cayley_2x2_step,
+    fused_spherical_step,
+    hopf_s3_cayley_2x2_step,
+    safe_hopf_clock,
+    su2_holonomy_transport,
+)
 from holosphere.models import (
+    CovariantSU2Attention,
     HoloSphereTransformer,
     analytical_forward_flops_per_token,
     build_preset_config,
@@ -308,6 +317,117 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
         w_gc = (torch.randn((2, 4, 3), generator=gen, dtype=torch.float64) * 0.5).detach().requires_grad_(True)
         ok = torch.autograd.gradcheck(cayley_su2, (w_gc,), eps=1e-6, atol=1e-10, rtol=1e-8)
         self.assertTrue(ok)
+
+    def test_05_v2_council_p0_p1_fixes_and_cayley_decay(self) -> None:
+        gen = torch.Generator(device="cpu").manual_seed(405)
+
+        # 1. Grok-4.7 P0 SLERP near-antipodal O(eps^-3) guard (m2 = 2 * eps^2 must NOT hit ~1e12!)
+        eps = 1e-4
+        h_near = torch.tensor([[1.0, 0.0, 0.0, 0.0]], dtype=torch.float64, requires_grad=True)
+        # Choose delta almost antipodal to h so ||mixed||^2 ~= 2 * eps^2 (just above eps^2!)
+        d_near = torch.tensor([[-1.0, 2.0 * eps, 0.0, 0.0]], dtype=torch.float64, requires_grad=True)
+        y_near = safe_slerp_step(h_near, d_near, 0.25 * 3.141592653589793, eps=eps)
+        (y_near * torch.tensor([[1.0, 1.0, 0.0, 0.0]], dtype=torch.float64)).sum().backward()
+        self.assertIsNotNone(h_near.grad)
+        self.assertTrue(bool(torch.isfinite(h_near.grad).all().item()))
+        self.assertLess(float(torch.max(torch.abs(h_near.grad)).item()), 2.0 / eps)
+
+        # Exact FP64 gradcheck away from antipode (||mixed||^2 >= 1e-3)
+        h_ok = torch.tensor([[1.0, 0.2, -0.3, 0.4]], dtype=torch.float64, requires_grad=True)
+        d_ok = torch.tensor([[0.5, 0.6, 0.1, -0.2]], dtype=torch.float64, requires_grad=True)
+        al_ok = torch.tensor([0.35], dtype=torch.float64, requires_grad=True)
+        self.assertTrue(
+            torch.autograd.gradcheck(
+                lambda a, b, c: safe_slerp_step(a, b, c, eps=1e-4),
+                (h_ok, d_ok, al_ok),
+                eps=1e-6,
+                atol=1e-10,
+                rtol=1e-8,
+            )
+        )
+
+        # 2. Grok-4.7 P1 non-sticky q_norm(0) -> (1, 0, 0, 0) prevents zero-fiber collapse in scan
+        zero_q = torch.zeros((1, 4), dtype=torch.float64)
+        id_q = safe_quat_unit_norm(zero_q, eps=1e-6)
+        self.assertLess(float(torch.max(torch.abs(id_q - torch.tensor([[1.0, 0.0, 0.0, 0.0]], dtype=torch.float64))).item()), 1e-14)
+        seq = torch.randn((1, 4, 2, 4), generator=gen, dtype=torch.float64)
+        seq[:, 1] = 0.0
+        scanned = su2_parallel_prefix_scan(seq, seq_dim=1, eps=1e-6)
+        self.assertLess(float(torch.max(torch.abs(torch.linalg.vector_norm(scanned, dim=-1) - 1.0)).item()), 1e-12)
+
+        # 3. ML4 P0 block-4 tied sqk preserves exact SU(2) 4-block equivariance
+        attn = CovariantSU2Attention(d_model=32, n_heads=2, pos_mode="su2_holonomy", ngpt_qk_norm=True)
+        self.assertIsNotNone(attn.sqk)
+        self.assertEqual(tuple(attn.sqk.shape), (1, 2, 1, 4, 1))
+
+        # 4. GPT-6 P0 fail-closed eps > 0 + FP32 pi_path invariant under BF16
+        q_bf = torch.randn((1, 2, 8, 16), generator=gen, dtype=torch.bfloat16)
+        k_bf = torch.randn((1, 2, 8, 16), generator=gen, dtype=torch.bfloat16)
+        v_bf = torch.randn((1, 2, 8, 16), generator=gen, dtype=torch.bfloat16)
+        om_bf = torch.randn((1, 2, 8, 4, 3), generator=gen, dtype=torch.bfloat16)
+        for map_mode in ("exp", "cayley"):
+            qr, kr, vr, pi_p = su2_holonomy_transport(q_bf, k_bf, v_bf, om_bf, transport_v=True, map_mode=map_mode)
+            self.assertEqual(qr.dtype, torch.bfloat16)
+            self.assertEqual(pi_p.dtype, torch.float32)
+            self.assertLess(float(torch.max(torch.abs(torch.linalg.vector_norm(pi_p, dim=-1) - 1.0)).item()), 1e-5)
+
+        for bad_eps in (0.0, -1e-4, float("nan"), float("inf")):
+            with self.assertRaises(HoloSphereError):
+                safe_unit_norm(h_ok, eps=bad_eps)
+            with self.assertRaises(HoloSphereError):
+                su2_holonomy_transport(q_bf, k_bf, v_bf, om_bf, eps=bad_eps)
+            with self.assertRaises(HoloSphereError):
+                fused_spherical_step(h_ok, d_ok, mode="hopf_s3", eps=bad_eps)
+
+        # 5. cayley_decay (phi_r -> 0) + safe_hopf_cayley_decay + s114_cayley_su2_unlooped + hopf_s3_cayley_2x2_step
+        prev_phi = 10.0
+        for r in range(32):
+            c, s = cayley_decay_cos_sin(r)
+            self.assertGreaterEqual(c, (1.0 - 0.64) / (1.0 + 0.64) - 1e-12)
+            self.assertAlmostEqual(c * c + s * s, 1.0, places=12)
+            phi = hopf_clock_angle(r, clock_law="cayley_decay")
+            self.assertLess(phi, prev_phi)
+            prev_phi = phi
+        self.assertLess(hopf_clock_angle(100, clock_law="cayley_decay"), 0.05)
+        rot_dec = safe_hopf_clock(torch.randn((2, 16), generator=gen, dtype=torch.float64), pass_idx=5, law="cayley_decay")
+        self.assertEqual(rot_dec.shape, (2, 16))
+
+        x_tok = torch.randint(0, 64, (2, 10), generator=gen)
+        cfg_csu2 = build_preset_config("s114_cayley_su2_unlooped", d_model=64, n_heads=4, n_layers=2, base_d_ff=176)
+        m_csu2 = HoloSphereTransformer(cfg_csu2)
+        logits_c, _ = m_csu2(x_tok)
+        self.assertTrue(bool(torch.isfinite(logits_c).all().item()))
+        logits_c.float().mean().backward()
+
+        cfg_dec = build_preset_config(
+            "s114_stage1b_cayley_vardepth",
+            loop_mode="safe_hopf_cayley_decay",
+            d_model=64,
+            n_heads=4,
+            n_layers=4,
+            base_d_ff=176,
+            n_pre=1,
+            n_core=2,
+            n_suffix=1,
+        )
+        m_dec = HoloSphereTransformer(cfg_dec)
+        logits_d, _ = m_dec(x_tok, r_loops=8)
+        self.assertTrue(bool(torch.isfinite(logits_d).all().item()))
+
+        # V2 hopf_s3_cayley_2x2_step & cayley_2x2_step FP64 gradcheck
+        h_f = torch.randn((2, 3, 8), generator=gen, dtype=torch.float64, requires_grad=True)
+        d_f = torch.randn((2, 3, 8), generator=gen, dtype=torch.float64, requires_grad=True)
+        w_f = (torch.randn((2, 3, 4), generator=gen, dtype=torch.float64) * 0.4).detach().requires_grad_(True)
+        self.assertTrue(
+            torch.autograd.gradcheck(
+                lambda a, b, c: hopf_s3_cayley_2x2_step(a, b, c),
+                (h_f, d_f, w_f),
+                eps=1e-6,
+                atol=1e-10,
+                rtol=1e-8,
+            )
+        )
+        self.assertEqual(cayley_2x2_step(h_f, w_f).shape, h_f.shape)
 
 
 if __name__ == "__main__":
