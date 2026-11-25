@@ -1,0 +1,37 @@
+name: HoloSphere CPU Verification (3-Mode Isolated)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify-cpu:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install PyTorch CPU & HoloSphere (editable)
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python3 -m pip install --no-build-isolation --no-deps -e .
+      - name: Run 3-mode isolated -I test parity (0 bare asserts, 0 leaks)
+        env:
+          CUDA_VISIBLE_DEVICES: ""
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -I -B tests/run_all.py
+          python3 -I -O -B tests/run_all.py
+          python3 -I -B -W error tests/run_all.py
+      - name: Run PREREG-S114 CPU preflight parity
+        env:
+          CUDA_VISIBLE_DEVICES: ""
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -I -B holosphere/benchmarks/prereg_s114_suite.py --cpu-preflight --json

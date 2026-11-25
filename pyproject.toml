@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "holosphere"
+version = "0.1.0"
+description = "Kernel-isomorphic SU(2) hypersphere transformer and bare-metal Ampere sm_86 quaternion holonomy operator suite"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [
+  { name = "Moissanite Labs" },
+]
+keywords = [
+  "hypersphere-transformer",
+  "su2-holonomy",
+  "quaternion",
+  "cuda",
+  "triton",
+  "hopf-fibration",
+  "ngpt",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "torch>=2.3",
+]
+
+[project.optional-dependencies]
+triton = ["triton>=3.0"]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/Moissanite-Labs/holosphere"
+Repository = "https://github.com/Moissanite-Labs/holosphere"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["holosphere*"]
