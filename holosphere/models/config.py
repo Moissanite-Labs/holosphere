@@ -11,7 +11,9 @@ from holosphere.errors import HoloSphereError, require_ok
 VALID_WIDTH_PROFILES = frozenset({"cylinder", "polar", "equatorial", "permuted_pol", "permuted_eq"})
 VALID_POS_MODES = frozenset({"su2_holonomy", "rope2d", "liere4d", "block4_rand_ortho"})
 VALID_RESIDUAL_MODES = frozenset({"hopf_s3", "slerp", "flat"})
-VALID_LOOP_MODES = frozenset({"none", "safe_hopf_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot", "flat"})
+VALID_LOOP_MODES = frozenset(
+    {"none", "safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot", "flat"}
+)
 
 
 @dataclass(frozen=True)
@@ -30,7 +32,7 @@ class HoloSphereConfig:
     angle_scale: float = 0.75
     residual_mode: str = "hopf_s3"
     ngpt_qk_norm: bool = True
-    # Looped core options (H7c + W10-OBS-31 acute-cone Safe-Hopf fix)
+    # Looped core options (H7c + W10-OBS-31 acute-cone / pure-rational cayley_acute + S110 var-depth)
     loop_mode: str = "none"
     n_pre: int = 2
     n_core: int = 4
@@ -38,7 +40,11 @@ class HoloSphereConfig:
     r_train: int = 3
     acute_phi_max: float = 0.42 * math.pi
     acute_tau: float = 2.0
-    # Optional S109/S110 Geosphere operators
+    cayley_acute_t_max: float = 0.8
+    var_depth_train: bool = False
+    r_train_min: int = 1
+    r_train_max: int = 4
+    # Optional S109/S110 Geosphere operators (DarcyEMA / BinghamProx opt-in only per Law 5!)
     use_cayley: bool = False
     cayley_rank: int = 16
     use_bingham: bool = False
@@ -74,6 +80,15 @@ class HoloSphereConfig:
             require_ok(self.n_pre >= 0 and self.n_core >= 1 and self.n_suffix >= 0, "loop requires n_core >= 1", code="CFG_LOOP_LAYERS")
             require_ok(self.r_train >= 1, "r_train must be >= 1", code="CFG_RTRAIN")
         require_ok(0.0 < self.acute_phi_max < 0.5 * math.pi, "acute_phi_max must lie in (0, pi/2)", code="CFG_PHI")
+        require_ok(self.acute_tau > 0.0, "acute_tau must be > 0", code="CFG_TAU")
+        require_ok(0.0 < self.cayley_acute_t_max < 1.0, "cayley_acute_t_max must lie in (0, 1)", code="CFG_TMAX")
+        if self.var_depth_train:
+            require_ok(self.loop_mode != "none", "var_depth_train requires loop_mode != 'none'", code="CFG_VARDEPTH")
+            require_ok(
+                1 <= self.r_train_min <= self.r_train_max,
+                f"var_depth_train requires 1 <= r_train_min <= r_train_max, got [{self.r_train_min}, {self.r_train_max}]",
+                code="CFG_VARDEPTH_RANGE",
+            )
 
 
 def build_preset_config(preset_name: str, **overrides: Any) -> HoloSphereConfig:
@@ -108,6 +123,48 @@ def build_preset_config(preset_name: str, **overrides: Any) -> HoloSphereConfig:
             residual_mode="hopf_s3",
             ngpt_qk_norm=True,
             loop_mode="none",
+        ),
+        # Phase-2 Surgical S110 -> HoloSphere Ladder (Law 5: DarcyEMA / BinghamProx excluded!)
+        "s114_stage1a_cayley": HoloSphereConfig(
+            arm_name="s114_stage1a_cayley",
+            d_model=320,
+            n_heads=8,
+            n_layers=12,
+            base_d_ff=864,
+            pos_mode="su2_holonomy",
+            transport_v=True,
+            residual_mode="hopf_s3",
+            ngpt_qk_norm=True,
+            loop_mode="none",
+            use_cayley=True,
+            cayley_rank=16,
+            use_bingham=False,
+            use_darcy=False,
+        ),
+        "s114_stage1b_cayley_vardepth": HoloSphereConfig(
+            arm_name="s114_stage1b_cayley_vardepth",
+            d_model=256,
+            n_heads=8,
+            n_layers=8,
+            base_d_ff=688,
+            pos_mode="su2_holonomy",
+            transport_v=True,
+            residual_mode="hopf_s3",
+            ngpt_qk_norm=True,
+            loop_mode="safe_hopf_cayley_acute",
+            n_pre=2,
+            n_core=4,
+            n_suffix=2,
+            r_train=3,
+            cayley_acute_t_max=0.8,
+            acute_tau=2.0,
+            var_depth_train=True,
+            r_train_min=1,
+            r_train_max=4,
+            use_cayley=True,
+            cayley_rank=16,
+            use_bingham=False,
+            use_darcy=False,
         ),
         # Track S106 H6c confirmed Native Hopf-S^3 residual micro-LM
         "s106_h6c_hopf": HoloSphereConfig(

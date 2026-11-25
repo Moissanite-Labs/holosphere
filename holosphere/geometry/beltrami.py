@@ -18,6 +18,93 @@ def _seeded_gen(seed: int) -> torch.Generator:
     return g
 
 
+def _reduce_broadcast_grad(grad: torch.Tensor, target_shape: tuple[int, ...]) -> torch.Tensor:
+    """Sum gradient across any leading or size-1 dimensions expanded during broadcasting."""
+    out = grad
+    while out.ndim > len(target_shape):
+        out = out.sum(dim=0)
+    for dim, size in enumerate(target_shape):
+        if size == 1 and out.shape[dim] != 1:
+            out = out.sum(dim=dim, keepdim=True)
+    return out
+
+
+class Cayley2x2AutogradFn(torch.autograd.Function):
+    """Exact closed-form 2x2 block-diagonal Cayley SO(d) forward & reverse-mode adjoint.
+
+    Matches the bare-metal Ampere ``sm_86`` register-recompute kernel contract (1 reciprocal +
+    7 FMAs per 2D pair, 0 trig, 0 matrix inverses, 0 extra HBM reads of y):
+      Forward:
+        d = 1 / (1 + w^2),  c = (1 - w^2) * d,  s = (2 w) * d
+        y_0 =  c * x_0 + s * x_1,   y_1 = -s * x_0 + c * x_1
+      Backward (from dQ/dw = (2 / (1 + w^2)) * J * Q(w)):
+        dL/dx_0 =  c * g_0 - s * g_1,   dL/dx_1 =  s * g_0 + c * g_1
+        dL/dw   = (2 / (1 + w^2)) * (g_0 * y_1 - g_1 * y_0)
+    """
+
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, omega: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
+        require_ok(x.ndim >= 1 and x.shape[-1] > 0 and x.shape[-1] % 2 == 0, "x last dim must be positive even", code="CAYLEY_DIM")
+        n_pairs = x.shape[-1] // 2
+        require_ok(
+            omega.ndim >= 1 and omega.shape[-1] == n_pairs,
+            f"omega last dim must equal d_model // 2 ({n_pairs}), got {tuple(omega.shape)}",
+            code="CAYLEY_OMEGA_SHAPE",
+        )
+        compute_dtype = torch.float64 if (x.dtype == torch.float64 or omega.dtype == torch.float64) else torch.float32
+        xf = x.to(compute_dtype).reshape(*x.shape[:-1], n_pairs, 2)
+        wf = omega.to(compute_dtype)
+        w2 = wf * wf
+        inv_d = 1.0 / (1.0 + w2)
+        c = (1.0 - w2) * inv_d
+        s = (2.0 * wf) * inv_d
+        x0, x1 = xf.unbind(dim=-1)
+        y0 = c * x0 + s * x1
+        y1 = -s * x0 + c * x1
+        ctx.save_for_backward(x, omega)
+        return torch.stack((y0, y1), dim=-1).reshape_as(x).to(x.dtype)
+
+    @staticmethod
+    def backward(ctx, grad_y: torch.Tensor) -> tuple[torch.Tensor | None, torch.Tensor | None]:  # type: ignore[override]
+        x, omega = ctx.saved_tensors
+        n_pairs = x.shape[-1] // 2
+        compute_dtype = (
+            torch.float64
+            if (x.dtype == torch.float64 or omega.dtype == torch.float64 or grad_y.dtype == torch.float64)
+            else torch.float32
+        )
+        xf = x.to(compute_dtype).reshape(*x.shape[:-1], n_pairs, 2)
+        gf = grad_y.to(compute_dtype).reshape(*grad_y.shape[:-1], n_pairs, 2)
+        wf = omega.to(compute_dtype)
+
+        w2 = wf * wf
+        inv_d = 1.0 / (1.0 + w2)
+        c = (1.0 - w2) * inv_d
+        s = (2.0 * wf) * inv_d
+        x0, x1 = xf.unbind(dim=-1)
+        g0, g1 = gf.unbind(dim=-1)
+
+        grad_x: torch.Tensor | None = None
+        if ctx.needs_input_grad[0]:
+            gx0 = c * g0 - s * g1
+            gx1 = s * g0 + c * g1
+            grad_x = torch.stack((gx0, gx1), dim=-1).reshape_as(x).to(x.dtype)
+
+        grad_omega: torch.Tensor | None = None
+        if ctx.needs_input_grad[1]:
+            y0 = c * x0 + s * x1
+            y1 = -s * x0 + c * x1
+            gw_full = (2.0 * inv_d) * (g0 * y1 - g1 * y0)
+            grad_omega = _reduce_broadcast_grad(gw_full, tuple(omega.shape)).to(omega.dtype)
+
+        return grad_x, grad_omega
+
+
+def cayley_2x2_rotate(x: torch.Tensor, omega: torch.Tensor) -> torch.Tensor:
+    """Apply exact 2x2 Cayley SO(d) rotation using closed-form reverse-mode adjoint."""
+    return Cayley2x2AutogradFn.apply(x, omega)
+
+
 class CayleyBlock2x2SO(nn.Module):
     """Closed-form 2x2 block-diagonal Cayley SO(d) feature rotation (4 FMAs/pair, zero LU).
 
@@ -65,25 +152,15 @@ class CayleyBlock2x2SO(nn.Module):
 
     @staticmethod
     def apply_cayley_2x2(x: torch.Tensor, omega: torch.Tensor) -> torch.Tensor:
-        orig_dtype = x.dtype
-        xf = x.float().reshape(*x.shape[:-1], -1, 2)
-        wf = omega.float()
-        w2 = wf * wf
-        inv_denom = 1.0 / (1.0 + w2)
-        c = (1.0 - w2) * inv_denom
-        s = (2.0 * wf) * inv_denom
-        x_even, x_odd = xf.unbind(-1)
-        y_even = c * x_even + s * x_odd
-        y_odd = -s * x_even + c * x_odd
-        return torch.stack((y_even, y_odd), dim=-1).reshape_as(x).to(orig_dtype)
+        return cayley_2x2_rotate(x, omega)
 
-    def explicit_matrix(self, omega: torch.Tensor | None = None) -> torch.Tensor:
-        w = (self.base_omega if omega is None else omega).detach().float().reshape(self.n_pairs)
+    def explicit_matrix(self, omega: torch.Tensor | None = None, *, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+        w = (self.base_omega if omega is None else omega).detach().to(dtype).reshape(self.n_pairs)
         w2 = w * w
         inv_d = 1.0 / (1.0 + w2)
         c = (1.0 - w2) * inv_d
         s = (2.0 * w) * inv_d
-        q = torch.zeros((self.d_model, self.d_model), dtype=torch.float32, device=w.device)
+        q = torch.zeros((self.d_model, self.d_model), dtype=dtype, device=w.device)
         idx = torch.arange(self.n_pairs, device=w.device)
         q[2 * idx, 2 * idx] = c
         q[2 * idx, 2 * idx + 1] = s
@@ -91,9 +168,9 @@ class CayleyBlock2x2SO(nn.Module):
         q[2 * idx + 1, 2 * idx + 1] = c
         return q
 
-    def explicit_skew_matrix(self, omega: torch.Tensor | None = None) -> torch.Tensor:
-        w = (self.base_omega if omega is None else omega).detach().float().reshape(self.n_pairs)
-        k = torch.zeros((self.d_model, self.d_model), dtype=torch.float32, device=w.device)
+    def explicit_skew_matrix(self, omega: torch.Tensor | None = None, *, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+        w = (self.base_omega if omega is None else omega).detach().to(dtype).reshape(self.n_pairs)
+        k = torch.zeros((self.d_model, self.d_model), dtype=dtype, device=w.device)
         idx = torch.arange(self.n_pairs, device=w.device)
         k[2 * idx, 2 * idx + 1] = -w
         k[2 * idx + 1, 2 * idx] = w
@@ -103,7 +180,7 @@ class CayleyBlock2x2SO(nn.Module):
         return self.apply_cayley_2x2(x, self.compute_omega(x))
 
 
-def build_paired_beltrami_operator(d_model: int) -> torch.Tensor:
+def build_paired_beltrami_operator(d_model: int, *, dtype: torch.dtype = torch.float32) -> torch.Tensor:
     """Parity-balanced symmetric shell operator C = diag(lam_j I_2) commuting with 2x2 Cayley."""
     require_ok(d_model >= 4 and d_model % 4 == 0, "d_model must be positive multiple of 4", code="BELTRAMI_DIM")
     n_half = (d_model // 2) // 2
@@ -111,7 +188,7 @@ def build_paired_beltrami_operator(d_model: int) -> torch.Tensor:
     for q in range(n_half):
         lam = float(q + 1) / float(n_half)
         diag_vals.extend([lam, lam, -lam, -lam])
-    return torch.diag(torch.tensor(diag_vals, dtype=torch.float32))
+    return torch.diag(torch.tensor(diag_vals, dtype=dtype))
 
 
 @torch.no_grad()
@@ -119,14 +196,16 @@ def run_beltrami_helicity_diagnostic(
     cayley_module: CayleyBlock2x2SO,
     n_steps: int = 8,
     seed: int = 42,
+    *,
+    dtype: torch.dtype = torch.float32,
 ) -> dict[str, Any]:
     """Verify Portal-3 Beltrami [C, K] = 0 helicity conservation & O3.5 symmetric-collapse control."""
     d = cayley_module.d_model
-    c_op = build_paired_beltrami_operator(d)
-    k_comm = cayley_module.explicit_skew_matrix().cpu()
-    q_comm = cayley_module.explicit_matrix().cpu()
+    c_op = build_paired_beltrami_operator(d, dtype=dtype)
+    k_comm = cayley_module.explicit_skew_matrix(dtype=dtype).cpu()
+    q_comm = cayley_module.explicit_matrix(dtype=dtype).cpu()
 
-    v0 = torch.randn(d, generator=_seeded_gen(seed), dtype=torch.float32)
+    v0 = torch.randn(d, generator=_seeded_gen(seed), dtype=dtype)
     v0 = v0 / torch.linalg.vector_norm(v0)
 
     def _moments(v: torch.Tensor) -> list[float]:

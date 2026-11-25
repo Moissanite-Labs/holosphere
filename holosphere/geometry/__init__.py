@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from holosphere.geometry.beltrami import (
+    Cayley2x2AutogradFn,
     CayleyBlock2x2SO,
     build_paired_beltrami_operator,
+    cayley_2x2_rotate,
     measure_trace_beltrami_rayleigh,
     run_beltrami_helicity_diagnostic,
 )
@@ -37,10 +39,12 @@ from holosphere.geometry.su2 import (
 )
 
 __all__ = [
+    "Cayley2x2AutogradFn",
     "CayleyBlock2x2SO",
     "VectorProximalPoloidalBingham",
     "build_paired_beltrami_operator",
     "build_s3_width_schedule",
+    "cayley_2x2_rotate",
     "cayley_acute_cos_sin",
     "darboux_intertwining_diagnostic",
     "hopf_clock_angle",

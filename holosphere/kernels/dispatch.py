@@ -111,6 +111,7 @@ def fused_spherical_step(
     *,
     mode: str = "hopf_s3",
     phi: torch.Tensor | float = 0.0,
+    c_s: tuple[float, float] | None = None,
     eps: float = 1e-4,
     backend: str = "auto",
 ) -> torch.Tensor:
@@ -118,7 +119,7 @@ def fused_spherical_step(
     resolved = _resolve_backend(backend, h)
     if resolved == "cuda_sm86" and mode == "hopf_s3":
         return cuda_hopf_s3_residual(h, delta)
-    return torch_fused_spherical_step(h, delta, alpha, mode=mode, phi=phi, eps=eps)
+    return torch_fused_spherical_step(h, delta, alpha, mode=mode, phi=phi, c_s=c_s, eps=eps)
 
 
 def safe_hopf_clock(

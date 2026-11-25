@@ -17,7 +17,7 @@ from __future__ import annotations
 import torch
 
 from holosphere.errors import require_ok
-from holosphere.geometry.hopf import hopf_fiber_rotate, hopf_s3_residual_step
+from holosphere.geometry.hopf import hopf_fiber_rotate, hopf_fiber_rotate_cs, hopf_s3_residual_step
 from holosphere.geometry.su2 import (
     quat_conj,
     quat_inverse_untransport,
@@ -139,6 +139,7 @@ def torch_fused_spherical_step(
     *,
     mode: str = "hopf_s3",
     phi: torch.Tensor | float = 0.0,
+    c_s: tuple[float, float] | None = None,
     eps: float = 1e-4,
 ) -> torch.Tensor:
     """Exact PyTorch reference for the unified spherical/Hopf residual & loop update."""
@@ -150,5 +151,10 @@ def torch_fused_spherical_step(
     if mode == "safe_hopf_loop":
         require_ok(alpha is not None, "mode='safe_hopf_loop' requires alpha", code="MISSING_ALPHA")
         rot_delta = hopf_fiber_rotate(delta, phi)
+        return safe_slerp_step(h, rot_delta, alpha, eps=eps)
+    if mode == "safe_hopf_cayley_loop":
+        require_ok(alpha is not None, "mode='safe_hopf_cayley_loop' requires alpha", code="MISSING_ALPHA")
+        require_ok(c_s is not None and len(c_s) == 2, "mode='safe_hopf_cayley_loop' requires c_s=(c, s)", code="MISSING_CS")
+        rot_delta = hopf_fiber_rotate_cs(delta, c_s[0], c_s[1])
         return safe_slerp_step(h, rot_delta, alpha, eps=eps)
     raise ValueError(f"Unknown fused_spherical_step mode: {mode!r}")

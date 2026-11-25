@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import math
+import time
 from typing import Any
 
 import torch
@@ -13,13 +14,14 @@ import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint as grad_checkpoint
 
 from holosphere.errors import require_ok
-from holosphere.geometry.hopf import build_s3_width_schedule, hopf_clock_angle
+from holosphere.geometry.hopf import build_s3_width_schedule, cayley_acute_cos_sin, hopf_clock_angle
 from holosphere.geometry.su2 import safe_unit_norm
-from holosphere.kernels.dispatch import fused_spherical_step
+from holosphere.kernels.dispatch import _resolve_backend, fused_spherical_step
 from holosphere.models.blocks import HoloSphereBlock
 from holosphere.models.config import HoloSphereConfig
 from holosphere.models.controls import RMSNorm
 from holosphere.models.heads import MarkovMTP8Head
+from holosphere.telemetry import HoloSphereStepTelemetry, HoloSphereTuningProfile, build_step_telemetry
 
 
 def _seeded_gen(seed: int) -> torch.Generator:
@@ -115,7 +117,8 @@ class HoloSphereTransformer(nn.Module):
                 self.register_buffer("rand_pass_rots", torch.empty(0))
 
         self.use_sphere_head = (cfg.residual_mode == "slerp") or (
-            cfg.loop_mode in ("safe_hopf_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot")
+            cfg.loop_mode
+            in ("safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime", "sphere_noclock", "sphere_randrot")
         )
         if self.use_sphere_head:
             self.final_norm: RMSNorm | None = None
@@ -130,6 +133,13 @@ class HoloSphereTransformer(nn.Module):
             else None
         )
 
+        # One-way SiliSense telemetry & step-boundary tuning state (zero weight mutation, zero sensor I/O)
+        self._tuning_profile: HoloSphereTuningProfile = HoloSphereTuningProfile(backend=cfg.backend)
+        self._tuning_profile.validate()
+        self._last_step_telemetry: HoloSphereStepTelemetry | None = None
+        self._step_counter: int = 0
+        self._var_depth_gen: torch.Generator = _seeded_gen(cfg.seed + 9110)
+
         # Deterministic weight initialization from cfg.seed (zero global RNG leakage)
         with torch.no_grad():
             for mod in self.modules():
@@ -137,6 +147,67 @@ class HoloSphereTransformer(nn.Module):
                     mod.weight.copy_(torch.randn(mod.weight.shape, generator=gen) * 0.02)
             if self.use_sphere_head:
                 self.normalize_sphere_weights_()
+
+    @property
+    def tuning_profile(self) -> HoloSphereTuningProfile:
+        """Current validated step-boundary execution profile."""
+        return self._tuning_profile
+
+    @property
+    def last_step_telemetry(self) -> HoloSphereStepTelemetry | None:
+        """Most recent opt-in step telemetry record (None if telemetry has not been emitted)."""
+        return self._last_step_telemetry
+
+    def apply_tuning_profile(self, profile: HoloSphereTuningProfile) -> HoloSphereTuningProfile:
+        """Apply a validated semantics-preserving tuning profile between steps (zero weight mutation)."""
+        require_ok(
+            isinstance(profile, HoloSphereTuningProfile),
+            f"expected HoloSphereTuningProfile, got {type(profile).__name__}",
+            code="TUNE_TYPE",
+        )
+        profile.validate()
+        self._tuning_profile = profile
+        for mod in self.modules():
+            if isinstance(mod, HoloSphereBlock):
+                mod.backend = profile.backend
+                mod.attn.backend = profile.backend
+        return profile
+
+    def sample_var_depth_passes(self) -> int:
+        """Sample a deterministic batch-uniform loop count r in [r_train_min, r_train_max]."""
+        lo = int(self.cfg.r_train_min)
+        hi = int(self.cfg.r_train_max)
+        if lo == hi:
+            return lo
+        offset = int(torch.randint(0, hi - lo + 1, (1,), generator=self._var_depth_gen).item())
+        return lo + offset
+
+    def record_step_telemetry(
+        self,
+        *,
+        batch_size: int,
+        seq_len: int,
+        r_loops: int,
+        step_ms: float,
+        norm_drift_max: float = 0.0,
+        resolved_backend: str = "torch_cpu",
+        step_idx: int | None = None,
+    ) -> HoloSphereStepTelemetry:
+        """Record a validated step-boundary telemetry snapshot for external governors (e.g. silisense)."""
+        idx = self._step_counter if step_idx is None else int(step_idx)
+        rec = build_step_telemetry(
+            step_idx=idx,
+            seq_len=seq_len,
+            batch_size=batch_size,
+            r_loops=r_loops,
+            backend=resolved_backend,
+            block_t=self._tuning_profile.block_t,
+            step_ms=step_ms,
+            norm_drift_max=norm_drift_max,
+        )
+        self._last_step_telemetry = rec
+        self._step_counter = idx + 1
+        return rec
 
     def _run_core_pass(self, h: torch.Tensor) -> torch.Tensor:
         require_ok(self.core_blocks is not None, "core_blocks missing", code="MODEL_STATE")
@@ -153,13 +224,19 @@ class HoloSphereTransformer(nn.Module):
         return_trace: bool = False,
         mtp_targets: torch.Tensor | None = None,
         mtp_unroll: bool = False,
+        emit_telemetry: bool = False,
+        step_ms: float | None = None,
     ) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Forward pass returning ``(logits, trace)`` (plus optional ``mtp_logits`` in trace)."""
+        """Forward pass returning ``(logits, trace)`` (plus optional ``mtp_logits`` / ``step_telemetry``)."""
+        t0 = time.perf_counter() if (emit_telemetry and step_ms is None) else 0.0
+        active_backend = self._tuning_profile.backend
+
         h = self.tok_emb(input_ids)
         if self.use_sphere_head:
             h = safe_unit_norm(h, dim=-1, eps=1e-4)
 
         trace: dict[str, Any] = {"pass_states": [], "norm_drift_max": 0.0}
+        passes_used = 1
 
         if not self.is_looped:
             require_ok(self.blocks is not None, "blocks missing", code="MODEL_STATE")
@@ -177,8 +254,17 @@ class HoloSphereTransformer(nn.Module):
                 "looped blocks missing",
                 code="MODEL_STATE",
             )
-            passes = self.cfg.r_train if r_loops is None else int(r_loops)
+            if r_loops is not None:
+                passes = int(r_loops)
+            elif self._tuning_profile.r_loops_override is not None:
+                passes = int(self._tuning_profile.r_loops_override)
+            elif self.cfg.var_depth_train and self.training:
+                passes = self.sample_var_depth_passes()
+            else:
+                passes = self.cfg.r_train
             require_ok(passes >= 1, f"r_loops must be >= 1, got {passes}", code="BAD_RLOOPS")
+            passes_used = passes
+            trace["r_loops_used"] = passes
 
             for blk in self.pre_blocks:
                 h = blk(h)
@@ -196,12 +282,12 @@ class HoloSphereTransformer(nn.Module):
                     h = h + gate * core_out
                 elif self.cfg.loop_mode == "sphere_noclock":
                     alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
-                    h = fused_spherical_step(h, core_out, alpha_r, mode="slerp", eps=1e-4, backend=self.cfg.backend)
+                    h = fused_spherical_step(h, core_out, alpha_r, mode="slerp", eps=1e-4, backend=active_backend)
                 elif self.cfg.loop_mode == "sphere_randrot":
                     alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
                     q_rot = self.rand_pass_rots[r % self.rand_pass_rots.shape[0]].to(core_out.dtype)
                     rot_out = torch.matmul(core_out, q_rot.transpose(0, 1))
-                    h = fused_spherical_step(h, rot_out, alpha_r, mode="slerp", eps=1e-4, backend=self.cfg.backend)
+                    h = fused_spherical_step(h, rot_out, alpha_r, mode="slerp", eps=1e-4, backend=active_backend)
                 elif self.cfg.loop_mode == "safe_hopf_acute":
                     alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
                     phi_val = hopf_clock_angle(
@@ -211,13 +297,29 @@ class HoloSphereTransformer(nn.Module):
                         tau=self.cfg.acute_tau,
                     )
                     h = fused_spherical_step(
-                        h, core_out, alpha_r, mode="safe_hopf_loop", phi=phi_val, eps=1e-4, backend=self.cfg.backend
+                        h, core_out, alpha_r, mode="safe_hopf_loop", phi=phi_val, eps=1e-4, backend=active_backend
+                    )
+                elif self.cfg.loop_mode == "safe_hopf_cayley_acute":
+                    alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
+                    c_val, s_val = cayley_acute_cos_sin(
+                        r,
+                        t_max=self.cfg.cayley_acute_t_max,
+                        tau=self.cfg.acute_tau,
+                    )
+                    h = fused_spherical_step(
+                        h,
+                        core_out,
+                        alpha_r,
+                        mode="safe_hopf_cayley_loop",
+                        c_s=(c_val, s_val),
+                        eps=1e-4,
+                        backend=active_backend,
                     )
                 elif self.cfg.loop_mode == "clifford_coprime":
                     alpha_r = torch.sigmoid(self.loop_gate_logits) * (0.45 * math.pi)
                     phi_val = hopf_clock_angle(r, clock_law="unaliased_coprime", r_train=self.cfg.r_train)
                     h = fused_spherical_step(
-                        h, core_out, alpha_r, mode="safe_hopf_loop", phi=phi_val, eps=1e-4, backend=self.cfg.backend
+                        h, core_out, alpha_r, mode="safe_hopf_loop", phi=phi_val, eps=1e-4, backend=active_backend
                     )
                 else:
                     raise ValueError(f"Unknown loop_mode: {self.cfg.loop_mode!r}")
@@ -242,6 +344,20 @@ class HoloSphereTransformer(nn.Module):
         else:
             require_ok(self.final_norm is not None, "final_norm missing", code="MODEL_STATE")
             logits = F.linear(self.final_norm(h), self.tok_emb.weight)
+
+        if emit_telemetry:
+            elapsed_ms = float(step_ms) if step_ms is not None else (time.perf_counter() - t0) * 1000.0
+            resolved_backend = _resolve_backend(active_backend, h)
+            tel = self.record_step_telemetry(
+                batch_size=int(input_ids.shape[0]),
+                seq_len=int(input_ids.shape[1]),
+                r_loops=passes_used,
+                step_ms=elapsed_ms,
+                norm_drift_max=float(trace["norm_drift_max"]),
+                resolved_backend=resolved_backend,
+            )
+            trace["step_telemetry"] = tel.to_dict()
+            trace["tuning_profile_sha256"] = self._tuning_profile.profile_sha256()
 
         return logits, trace
 
@@ -300,7 +416,11 @@ def analytical_forward_flops_per_token(
             pos_extra = w_omega_flops + scan_flops + n_transports * 28 * n_q
         elif cfg.pos_mode in ("liere4d", "block4_rand_ortho"):
             pos_extra = 2 * 16 * (d // 4)
-        return proj + attn_qk_av + pos_extra
+        cayley_extra = 0
+        if cfg.use_cayley:
+            n_pairs = d // 2
+            cayley_extra = 2 * d * cfg.cayley_rank + 2 * cfg.cayley_rank * n_pairs + 8 * n_pairs
+        return proj + attn_qk_av + pos_extra + cayley_extra
 
     if cfg.loop_mode == "none":
         widths = [w - dff_offset for w in build_s3_width_schedule(cfg.n_layers, cfg.base_d_ff, cfg.width_profile)]
@@ -314,7 +434,7 @@ def analytical_forward_flops_per_token(
             + passes * cfg.n_core * _layer_flops(eff_dff)
             + cfg.n_suffix * _layer_flops(eff_dff)
         )
-        if cfg.loop_mode in ("safe_hopf_acute", "clifford_coprime"):
+        if cfg.loop_mode in ("safe_hopf_acute", "safe_hopf_cayley_acute", "clifford_coprime"):
             core_flops += passes * (6 * d)
         elif cfg.loop_mode == "sphere_randrot":
             core_flops += passes * (2 * d * d)
