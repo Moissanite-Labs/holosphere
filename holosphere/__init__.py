@@ -25,6 +25,16 @@ if TYPE_CHECKING:
         h256_bent4_byte_inject_s8,
         h256_bent4_embed_torch,
     )
+    from holosphere.e2e_engine import (
+        holosphere_v3_chunk32_fused,
+        run_e2e_stdlib_self_test,
+        verify_e2e_live_receipts,
+        verify_e2e_ptxas_receipt,
+    )
+    from holosphere.e2e_inference import (
+        HoloSphereV3BareMetalInferEngine,
+        pack_linear_a16_blockh4_torch,
+    )
     from holosphere.geometry.beltrami import Cayley2x2AutogradFn, cayley_2x2_rotate
     from holosphere.geometry.su2 import cayley_su2
     from holosphere.kernels.dispatch import (
@@ -46,6 +56,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "Cayley2x2AutogradFn": ("holosphere.geometry.beltrami", "Cayley2x2AutogradFn"),
     "HoloSphereConfig": ("holosphere.models.config", "HoloSphereConfig"),
     "HoloSphereTransformer": ("holosphere.models.transformer", "HoloSphereTransformer"),
+    "HoloSphereV3BareMetalInferEngine": ("holosphere.e2e_inference", "HoloSphereV3BareMetalInferEngine"),
     "NullModemCell": ("holosphere.models.nullmodem_e8", "NullModemCell"),
     "available_backends": ("holosphere.kernels.dispatch", "available_backends"),
     "build_preset_config": ("holosphere.models.config", "build_preset_config"),
@@ -57,10 +68,15 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "fused_spherical_step": ("holosphere.kernels.dispatch", "fused_spherical_step"),
     "h256_bent4_byte_inject_s8": ("holosphere.chunk32_ops", "h256_bent4_byte_inject_s8"),
     "h256_bent4_embed_torch": ("holosphere.chunk32_ops", "h256_bent4_embed_torch"),
+    "holosphere_v3_chunk32_fused": ("holosphere.e2e_engine", "holosphere_v3_chunk32_fused"),
     "hopf_s3_cayley_2x2_step": ("holosphere.kernels.dispatch", "hopf_s3_cayley_2x2_step"),
+    "pack_linear_a16_blockh4_torch": ("holosphere.e2e_inference", "pack_linear_a16_blockh4_torch"),
+    "run_e2e_stdlib_self_test": ("holosphere.e2e_engine", "run_e2e_stdlib_self_test"),
     "safe_hopf_clock": ("holosphere.kernels.dispatch", "safe_hopf_clock"),
     "su2_holonomy_transport": ("holosphere.kernels.dispatch", "su2_holonomy_transport"),
     "su2_inverse_untransport": ("holosphere.kernels.dispatch", "su2_inverse_untransport"),
+    "verify_e2e_live_receipts": ("holosphere.e2e_engine", "verify_e2e_live_receipts"),
+    "verify_e2e_ptxas_receipt": ("holosphere.e2e_engine", "verify_e2e_ptxas_receipt"),
 }
 
 
@@ -83,6 +99,7 @@ __all__ = [
     "HoloSphereStepTelemetry",
     "HoloSphereTransformer",
     "HoloSphereTuningProfile",
+    "HoloSphereV3BareMetalInferEngine",
     "HoloSphereValueError",
     "NullModemCell",
     "PROJECT_NAME",
@@ -99,9 +116,14 @@ __all__ = [
     "fused_spherical_step",
     "h256_bent4_byte_inject_s8",
     "h256_bent4_embed_torch",
+    "holosphere_v3_chunk32_fused",
     "hopf_s3_cayley_2x2_step",
+    "pack_linear_a16_blockh4_torch",
     "require_ok",
+    "run_e2e_stdlib_self_test",
     "safe_hopf_clock",
     "su2_holonomy_transport",
     "su2_inverse_untransport",
+    "verify_e2e_live_receipts",
+    "verify_e2e_ptxas_receipt",
 ]
