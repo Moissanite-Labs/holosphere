@@ -406,7 +406,8 @@ class HoloSphereTransformer(nn.Module):
         h = hashlib.sha256()
         for name, param in sorted(self.named_parameters(), key=lambda kv: kv[0]):
             h.update(name.encode("utf-8"))
-            h.update(param.detach().to(device="cpu", dtype=torch.float32).contiguous().numpy().tobytes())
+            flat = param.detach().to(device="cpu", dtype=torch.float32).contiguous().clone()
+            h.update(bytes(flat.untyped_storage()))
         return h.hexdigest()
 
 
