@@ -1,6 +1,17 @@
 # Bare-Metal Ampere `sm_86` CUDA/PTX Kernel ABI (`csrc/`)
 
-This directory hosts all **27 bare-metal zero-spill NVIDIA Ampere `sm_86` CUDA/PTX kernels** (`Moissanite-Labs/silikernels#3` companion mirror).
+This directory hosts **40 bare-metal zero-spill NVIDIA Ampere `sm_86` CUDA/PTX kernels**: `27` core `SU(2)` / `Cayley2x2` kernels (`su2_holonomy_scan_sm86.cu`, `Moissanite-Labs/silikernels#3` companion mirror), `11` Chunk32 Woodbury / `H_256 x bent4` / single-CTA `16`-warp `d_model=512` CellOp `.sys` BER-canary kernels (`holosphere_h256_chunk32_sm86.cu`, verified in `ptxas_s117_zero_spill_receipt.json`), and `2` V3 Frontier kernels (`holosphere_v3_frontier_sm86.cu`, verified in `ptxas_v3_frontier_zero_spill_receipt.json`).
+
+## Track S117 V3 Frontier (`holosphere_v3_frontier_sm86.cu` — `2/2` `0 B` Spills)
+
+- **`s117_chunk32_bwd_wmma_sm86` (`W10-OBS-61` Double-Woodbury Symmetric Gram Tensor-Core Backward):** `128` regs (`100%` RF @ `16` warps/SM), `6,336 B` SMEM (`99%` SMEM), `0 B` spills, `28` `HMMA.16816`, `30` `SHFL` (`-93.35%` vs Choice B's `451`); live RTX 3080 (`B=4, T=8192, D=512, L=12`): **`148,382.09 tok/s` (`220.84 ms / 12L`, `2.409×` over Choice B, `0.4105 mJ/tok` NVML)** with `<= 4.36e-5` 3-chunk FP64 parity.
+- **`s117_uniform_cell_16warp_d512_v3_sm86` (`0`-`POPC` Dual-SWAR SECDED + Cross-Layer `LDG.128` Prefetch):** `52` regs, `13,992 B` SMEM, `0 B` spills, `24` `IDP.4A`, `7` `LDG.128`, `1` `RED.E.ADD.STRONG.SYS`; live RTX 3080: **`20.51 us/tok`** CellOp / **`21.52 us/tok` (`46,468 tok/s`)** E2E w/ `0 B` tied `FWHT_256 x bent4` (`1.96e-7` dense FP64 parity) and **`16/16` SEC `0.0` bit-exact** `.sys` BER canary (`clean=0, sec16=16, ded=1`).
+
+## Track S117 Full-Stack Collapse & Razor `.sys` Canary (`holosphere_h256_chunk32_sm86.cu`)
+
+- **Zero-Spill Gate (`ptxas_s117_zero_spill_receipt.json`):** **`11/11` kernels `0 B` stack / `0 B` spills** (`LDL: 0, STL: 0, ATOMG_GPU: 0, MEMBAR_GL: 0, IDP4A: 16, IMMA_16832: 6, RED_SYS: 2, MEMBAR_SYS: 2`).
+- **Single-CTA `16`-Warp `d_model = 512` V2 CellOp (`s117_uniform_cell_16warp_d512_v2_sm86`):** `48` regs, `16,040 B` SMEM, `0` cross-CTA barriers; live RTX 3080 (`GA104M`) **`26.23 us/tok`** CellOp-only and **`27.43 us/tok` / `0.989 mJ/tok`** full E2E with `0 B`-VRAM tied `FWHT_256 x bent4` LM head (`1.83e-7` parity vs FP64 dense) + double-buffered inline `[16, 11, 4]` LSB SECDED `.sys` BER canary (**`0` clean PCIe writes, `16/16` SEC `0.0` bit-exact across all `512` hidden floats & `256` logits, `1/1` DED flagged**).
+- **Razor `64 B` `.sys` Telemetry ABI (`include/razor_abi_4byte_sys.h`):** Cacheline-aligned `HoloSphereRazorCanary64` (`sizeof=64, alignof=64`) + `16 B` `HoloSpherePiRollback16` (`Apache-2.0` SPDX) bridging `30 kHz` BER detection to [`Moissanite-Labs/silisense`](https://github.com/Moissanite-Labs/silisense). *Scope boundary:* `[16, 11, 4]` LSB SECDED covers `16/16` LSB flips and `120/120` 2-bit LSB pairs (`0/48` on signed-nibble upper bits `1..3` alone); `include/razor_abi_4byte_sys.h` closes `48/48` upper-bit single faults via folded `bit1^bit2^bit3` parity (`0` extra DRAM B) and epoch-rotated bit-plane checks (`b = epoch & 3`).
 
 ## Core Isomorphism: `1` Unit Quaternion `q ∈ SU(2)` = `1` `float4` (`LDG.E.128`)
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -186,6 +187,53 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
         with self.assertRaises(HoloSphereError):
             HoloSphereTuningProfile(backend=[])  # type: ignore[arg-type]
 
+        # PR #2 Component D regression: 10**400 must raise typed HoloSphereError (never uncaught OverflowError)
+        with self.assertRaises(HoloSphereError) as cm_ov_tune:
+            HoloSphereTuningProfile(inter_step_cooldown_ms=10**400)  # type: ignore[arg-type]
+        self.assertEqual(cm_ov_tune.exception.code, "TUNE_COOLDOWN")
+        with self.assertRaises(HoloSphereError) as cm_ov_tel:
+            HoloSphereStepTelemetry(
+                step_idx=0,
+                seq_len=16,
+                batch_size=1,
+                r_loops=1,
+                backend="torch_cpu",
+                block_t=64,
+                step_ms=10**400,  # type: ignore[arg-type]
+                tok_per_sec=100.0,
+                norm_drift_max=0.0,
+            )
+        self.assertEqual(cm_ov_tel.exception.code, "TEL_STEP_MS")
+
+        # Cross-repo 128/128 profile_sha256() parity vs sibling Moissanite-Labs/silisense when present locally
+        silisense_root = REPO_ROOT.parent / "silisense"
+        if silisense_root.is_dir():
+            cases = [
+                (b, bt, mbs, cd, rl)
+                for b in ("auto", "cuda_sm86", "triton", "torch_cpu")
+                for bt in (32, 64, 128, 256)
+                for mbs in (None, 4)
+                for cd in (0, 0.0, -0.0, 2.5)
+                for rl in (None,)
+            ]
+            self.assertEqual(len(cases), 128)
+            local_hashes = [
+                HoloSphereTuningProfile(
+                    backend=b, block_t=bt, microbatch_size=mbs, inter_step_cooldown_ms=cd, r_loops_override=rl
+                ).profile_sha256()
+                for b, bt, mbs, cd, rl in cases
+            ]
+            sili_probe = (
+                f"import json, sys; sys.path.insert(0, {str(silisense_root)!r}); "
+                "from silisense.holosphere_bridge import HoloSphereTuningProfile; "
+                "cases = [(b, bt, mbs, cd, rl) for b in ('auto','cuda_sm86','triton','torch_cpu') "
+                "for bt in (32,64,128,256) for mbs in (None,4) for cd in (0,0.0,-0.0,2.5) for rl in (None,)]; "
+                "print(json.dumps([HoloSphereTuningProfile(backend=b,block_t=bt,microbatch_size=mbs,inter_step_cooldown_ms=cd,r_loops_override=rl).profile_sha256() for b,bt,mbs,cd,rl in cases]))"
+            )
+            sp = subprocess.run([sys.executable, "-I", "-B", "-c", sili_probe], capture_output=True, text=True, check=False)
+            self.assertEqual(sp.returncode, 0, sp.stderr)
+            self.assertEqual(json.loads(sp.stdout), local_hashes)
+
         tel = build_step_telemetry(
             step_idx=3,
             seq_len=128,
@@ -199,29 +247,127 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
         self.assertEqual(HoloSphereStepTelemetry.from_dict(tel.to_dict()), tel)
         self.assertAlmostEqual(tel.tok_per_sec, 25600.0, places=3)
 
-        # Fail-closed rejection on bad schemas, booleans, NaN, bad block_t, extra keys
-        with self.assertRaises(HoloSphereError):
-            HoloSphereTuningProfile(backend="unknown").validate()
-        with self.assertRaises(HoloSphereError):
-            HoloSphereTuningProfile(block_t=96).validate()
-        with self.assertRaises(HoloSphereError):
-            HoloSphereTuningProfile(inter_step_cooldown_ms=float("nan")).validate()
-        with self.assertRaises(HoloSphereError):
-            HoloSphereTuningProfile(microbatch_size=True).validate()  # type: ignore[arg-type]
-        with self.assertRaises(HoloSphereError):
-            HoloSphereTuningProfile.from_dict({"backend": "auto", "mutate_weights": True})
-        with self.assertRaises(HoloSphereError):
-            HoloSphereStepTelemetry.from_dict({"step_idx": 0})
-        with self.assertRaises(HoloSphereError):
+        # Exact lower/upper valid boundaries (kills >= -> > and <= -> < mutants)
+        tel_edge = build_step_telemetry(
+            step_idx=0,
+            seq_len=1,
+            batch_size=1,
+            r_loops=1,
+            backend="torch_cpu",
+            block_t=32,
+            step_ms=0.0,
+            norm_drift_max=0.0,
+        )
+        self.assertEqual(tel_edge.step_idx, 0)
+        self.assertEqual(tel_edge.tok_per_sec, 0.0)
+        p_edge = HoloSphereTuningProfile(
+            backend="auto",
+            block_t=32,
+            microbatch_size=1,
+            inter_step_cooldown_ms=60000.0,
+            r_loops_override=1,
+        )
+        self.assertEqual(p_edge.inter_step_cooldown_ms, 60000.0)
+        p_zero_cd = HoloSphereTuningProfile(inter_step_cooldown_ms=0.0)
+        self.assertEqual(p_zero_cd.inter_step_cooldown_ms, 0.0)
+
+        # B3 regression: build_step_telemetry large-int batch_size=10**400 & tps overflow -> typed HoloSphereError
+        with self.assertRaises(HoloSphereError) as cm_tok_ov:
             build_step_telemetry(
-                step_idx=0,
-                seq_len=16,
-                batch_size=2,
+                step_idx=1,
+                seq_len=1,
+                batch_size=10**400,
                 r_loops=1,
-                backend="auto",
-                block_t=128,
+                backend="torch_cpu",
+                block_t=64,
                 step_ms=1.0,
             )
+        self.assertEqual(cm_tok_ov.exception.code, "TEL_TOKENS")
+        with self.assertRaises(HoloSphereError) as cm_tps_ov:
+            build_step_telemetry(
+                step_idx=1,
+                seq_len=1,
+                batch_size=10**306,
+                r_loops=1,
+                backend="torch_cpu",
+                block_t=64,
+                step_ms=1e-10,
+            )
+        self.assertEqual(cm_tps_ov.exception.code, "TEL_TPS")
+
+        # Complete fail-closed negative & boundary matrix for 100% mutation kill on telemetry.py
+        base_tel_kw = dict(
+            step_idx=0,
+            seq_len=1,
+            batch_size=1,
+            r_loops=1,
+            backend="torch_cpu",
+            block_t=64,
+            step_ms=0.0,
+            tok_per_sec=0.0,
+            norm_drift_max=0.0,
+        )
+        for bad_kw in (
+            {"schema": "bad.schema.v0"},
+            {"schema": 123},
+            {"step_idx": -1},
+            {"step_idx": True},
+            {"seq_len": 0},
+            {"batch_size": 0},
+            {"r_loops": 0},
+            {"backend": "auto"},
+            {"block_t": 96},
+            {"step_ms": -0.01},
+            {"step_ms": float("inf")},
+            {"step_ms": True},
+            {"tok_per_sec": -0.01},
+            {"norm_drift_max": -1e-9},
+        ):
+            kw = dict(base_tel_kw)
+            kw.update(bad_kw)
+            with self.assertRaises(HoloSphereError):
+                HoloSphereStepTelemetry(**kw)  # type: ignore[arg-type]
+
+        with self.assertRaises(HoloSphereError):
+            build_step_telemetry(
+                step_idx=0, seq_len=16, batch_size=2, r_loops=1, backend="torch_cpu", block_t=128, step_ms=-0.1
+            )
+        with self.assertRaises(HoloSphereError) as cm_tiny_neg:
+            build_step_telemetry(
+                step_idx=0, seq_len=16, batch_size=2, r_loops=1, backend="torch_cpu", block_t=128, step_ms=-1e-9
+            )
+        self.assertEqual(cm_tiny_neg.exception.code, "TEL_STEP_MS")
+        with self.assertRaises(HoloSphereError):
+            build_step_telemetry(
+                step_idx=0, seq_len=16, batch_size=2, r_loops=1, backend="auto", block_t=128, step_ms=1.0
+            )
+        with self.assertRaises(HoloSphereError):
+            HoloSphereStepTelemetry.from_dict(["not", "a", "mapping"])  # type: ignore[arg-type]
+        with self.assertRaises(HoloSphereError):
+            HoloSphereStepTelemetry.from_dict({"step_idx": 0})
+        bad_tel_extra = tel.to_dict()
+        bad_tel_extra["extra_field"] = 1
+        with self.assertRaises(HoloSphereError):
+            HoloSphereStepTelemetry.from_dict(bad_tel_extra)
+
+        for bad_prof_kw in (
+            {"schema": "bad.profile.v0"},
+            {"backend": "unknown"},
+            {"block_t": 96},
+            {"microbatch_size": 0},
+            {"microbatch_size": True},
+            {"inter_step_cooldown_ms": -0.1},
+            {"inter_step_cooldown_ms": 60000.1},
+            {"inter_step_cooldown_ms": float("nan")},
+            {"r_loops_override": 0},
+            {"r_loops_override": True},
+        ):
+            with self.assertRaises(HoloSphereError):
+                HoloSphereTuningProfile(**bad_prof_kw)  # type: ignore[arg-type]
+        with self.assertRaises(HoloSphereError):
+            HoloSphereTuningProfile.from_dict(["not", "a", "mapping"])  # type: ignore[arg-type]
+        with self.assertRaises(HoloSphereError):
+            HoloSphereTuningProfile.from_dict({"backend": "auto", "mutate_weights": True})
 
     def test_03_stage1a_stage1b_presets_vardepth_and_model_telemetry_hook(self) -> None:
         small_kw = dict(d_model=64, n_heads=4, n_layers=4, base_d_ff=176, n_pre=1, n_core=2, n_suffix=1, r_train=3)

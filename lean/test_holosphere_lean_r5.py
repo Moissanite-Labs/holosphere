@@ -702,6 +702,57 @@ class Test07LiveLeanAndPoisonedEnvHijack(unittest.TestCase):
                 else:
                     os.environ["LEAN_PATH"] = old_lp
 
+    def test_15_verify_all_51_pure_init_lean_theorems(self) -> None:
+        all_res = ver.verify_all_lean_modules_live(LEAN_DIR, check_sha=True)
+        self.assertEqual(all_res["modules_verified"], 5)
+        self.assertEqual(all_res["total_theorems_verified"], 51)
+        counts = {m["module"]: m["theorems_verified"] for m in all_res["modules"]}
+        self.assertEqual(
+            counts,
+            {
+                "HoloSphereInvariants": 36,
+                "HoloSphereCellOpInvariants": 5,
+                "HoloSphereConvergenceTheorems": 5,
+                "HoloSphereSpinorBarrington": 3,
+                "HoloSphereCrossSpineBridges": 2,
+            },
+        )
+        proc = subprocess.run(
+            [sys.executable, "-I", "-B", str(LEAN_DIR / "verify_holosphere_lean.py"), "--verify-all-lean", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        parsed = json.loads(proc.stdout)
+        self.assertEqual(parsed["total_theorems_verified"], 51)
+        self.assertEqual(parsed["modules_verified"], 5)
+
+        # B1 regression: scrubbed env with synthetic HOME=/nonexistent + valid ELAN_HOME + hostile LEAN_PATH/ELAN_TOOLCHAIN
+        lean_bin = ver.resolve_lean_binary()
+        elan_home = os.environ.get("ELAN_HOME") or str(Path(lean_bin).resolve().parent.parent)
+        scrubbed = {
+            "PATH": f"{Path(lean_bin).parent}:/usr/bin:/bin",
+            "ELAN_HOME": elan_home,
+            "HOME": "/nonexistent",
+            "LEAN_PATH": "/tmp/poison_lean_path",
+            "ELAN_TOOLCHAIN": "poison-toolchain",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        proc_fake_home = subprocess.run(
+            [sys.executable, "-I", "-B", str(LEAN_DIR / "verify_holosphere_lean.py"), "--verify-all-lean", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+            env=scrubbed,
+        )
+        self.assertEqual(proc_fake_home.returncode, 0, proc_fake_home.stderr + proc_fake_home.stdout)
+        parsed_fh = json.loads(proc_fake_home.stdout)
+        self.assertEqual(parsed_fh["modules_verified"], 5)
+        self.assertEqual(parsed_fh["total_theorems_verified"], 51)
+
 
 if __name__ == "__main__":
     unittest.main()

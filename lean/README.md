@@ -4,7 +4,9 @@ Machine-checked formal proofs for **Project HoloSphere** (`HoloSphereInvariants.
 
 ---
 
-## Silicon–Geometry Isomorphism & 36-Theorem Catalog
+## Silicon–Geometry Isomorphism & 51-Theorem Catalog (`5` Pure-`Init` Modules)
+
+### Core Module (`HoloSphereInvariants.lean` — Theorems `#1–#36`)
 
 ### Pillar 1 — $SU(2) \cong S^3$ Associative Prefix Scan, Euler Norm, Rational `cayley_su2`, Local-$S^3$ & Suffix-Sum Adjoint (`holosphere/geometry/su2.py`, `holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu`)
 
@@ -67,6 +69,26 @@ Machine-checked formal proofs for **Project HoloSphere** (`HoloSphereInvariants.
 | 35 | `p5_gate_asymmetric_recovery_vs_symmetric_deadlock` | `gateAsymmetric` ($\sum (u_i - u_{0,i})_+^2 \le R^2$) admits every strict safety descent at $R \le 0$, whereas symmetric trust-region gates deadlock |
 | 36 | `p5_asymmetric_left_factor_zero_nullspace_drift` | Quantizing the left factor $Q(B)Ax = 0$ preserves $\ker(A)$ identically (`0` drift), whereas right-factor $Q(A)x \ne 0$ shatters $\ker(A)$ |
 
+### Companion Modules (`#37–#50`, `+15` Public Zero-`Classical.choice` Theorems -> `51/51` Total)
+
+| # | Module & Lean 4 Theorem | Algebraic Guarantee & Hardware Consequence |
+|---|---|---|
+| 37 | `HoloSphereCellOpInvariants.p1_blockh4_involutory_and_int8_bounds` | `blockH4 (blockH4 u) = 4 u`, Parseval `4 * ||u||^2`, tight `int8` `[-32, 30]` over `[-8, 7]^4` |
+| 38 | `HoloSphereCellOpInvariants.p2_cayley_unit_ball_so3_involution_and_even` | Unit-ball `||w||^2 = d^2` yields $180^\circ$ $SO(3)$ involution + `±I`-invariant `so3Adj` covering $A_5 = 2I / \{\pm I\}$ |
+| 39 | `HoloSphereCellOpInvariants.p3_cayley_exact_inverse_reversibility` | Homogeneous Cayley inverse `qmul (cayley d w) (cayley d (-w)) = ((d^2 + ||w||^2)^2, 0, 0, 0)` enabling $O(1)$-VRAM backward replay |
+| 40 | `HoloSphereCellOpInvariants.p4_hadamard256_byte_orthogonality` | Inductive $256 \times 256$ Walsh–Hadamard byte orthogonality over `Fin 256` & `UInt8` (`0 B` embedding VRAM) |
+| 40b | `HoloSphereCellOpInvariants.p4b_bent_phase_preserves_orthogonality` | Maiorana–McFarland `bent4` sign modulation preserves `100%` orthogonality while eliminating constant warps (`0 / 2,048`) |
+| 41 | `HoloSphereConvergenceTheorems.p41_woodbury_zero_inv_chunked_adjoint` | Zero-$\gamma^{-1}$ closed-form Woodbury transpose $S_t^\top v = \gamma^t S_0^\top v + \sum_{k=0}^{t-1} \gamma^{t-1-k} \eta \langle e_k, v\rangle \tilde{x}_k$ (including $\gamma = 0$) |
+| 42 | `HoloSphereConvergenceTheorems.p42_relational_macro_holonomy_left_gauge_invariance` | Relational macro holonomy $\Delta U = U_{\tau_1} \overline{U_{\tau_0}}$ right-shift gauge invariance & exact endpoint recovery |
+| 43 | `HoloSphereConvergenceTheorems.p43_a16_hamming16_11_4_inline_secded` | Exhaustive `[16, 11, 4]` extended Hamming LSB SECDED (`16/16` SEC lane recovery, `120/120` 2-bit DED detection) |
+| 44 | `HoloSphereConvergenceTheorems.p44_dyadic_23bit_gumbel_strict_unit_interval` | Strictly-inside-$(0, 1)$ 23-bit dyadic Gumbel bounds ($1 \le 2m + 1 \le 2^{24}-1$) vs 32-bit `0xFFFFFF80` rounding to `1.0f` |
+| 45 | `HoloSphereConvergenceTheorems.p45_su2_nonabelian_3line_adjoint_identity` | Exact non-Abelian `SU(2)` 3-line backward directional adjoint identity |
+| 46 | `HoloSphereSpinorBarrington.p46_spinor_barrington_c10_exact_closure` | **Zero-axiom `[]`** exact scale-4 $\mathbb{Z}[\sqrt{5}]$ spinor `C_10^+` order-10 closure (`tau0^5 = -I`, `[g_a tau0 g_a†, g_b tau0 g_b†] = +tau0`) & sign-free `{+I, +tau0}` `AND`/`NOT` completeness |
+| 47 | `HoloSphereSpinorBarrington.p47_su2_commutator_trace_and_order5_obstruction` | Universal `Re(a b ā b̄) = N(a)N(b) - 2||a×b||^2` + exact order-5 spinor obstruction (`[g_a sigma0 g_a†, g_b sigma0 g_b†] = -sigma0 != +sigma0`) |
+| 48 | `HoloSphereSpinorBarrington.p48_spinor_barrington_acute_cayley_ball` | Strict acute real part $q_0 > 0$ & Cayley bounded-ball inequality $25\|\vec{Q}\|^2 < 16(4 + Q_0)^2$ ($\|\omega\| < 4/5$) across all 5 Spinor-Barrington generators |
+| 49 | `HoloSphereCrossSpineBridges.p49_bridge11_bent4_u4_symplectic_and_flat_wht` | `BRIDGE_11`: `bent4` symplectic polarization, $U_4(\mathbb{F}_2)$ Heisenberg commutator isomorphism (`1,024/1,024`), self-dual flat WHT spectrum `4(-1)^q`, and integer carry-cover obstruction |
+| 50 | `HoloSphereCrossSpineBridges.p50_bridge12_nonscalar_krein_holonomy_order_split` | `BRIDGE_12`: Scalar $G = I_3$ blindness `(1,1)` vs non-scalar `G_3 = diag(3,1,1)` order split `(1,2)` + universal $2I$ holonomy phase separation (`2` central vs `118` nontrivial) |
+
 ---
 
 ## Reproducible CPU-Only Verification (3 Isolated `-I` Modes)
@@ -75,8 +97,8 @@ Machine-checked formal proofs for **Project HoloSphere** (`HoloSphereInvariants.
 # 1. Verify frozen rational witness certificate + live replay
 python3 -I -B lean/verify_holosphere_lean.py --check
 
-# 2. Run R13b 18-rule static gate + scrubbed live Lean 4.36.0 kernel & #print axioms check
-python3 -I -B lean/verify_holosphere_lean.py --verify-lean
+# 2. Run R13b 18-rule static gate + scrubbed live Lean 4.36.0 kernel across ALL 5 modules (51/51 theorems)
+python3 -I -B lean/verify_holosphere_lean.py --verify-all-lean --json
 
 # 3. Run full positive + adversarial R5 + live Lean test suite across all 3 isolated -I modes
 python3 -I -B -m unittest discover -s lean -p "test_*.py" -v

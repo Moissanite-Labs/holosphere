@@ -40,7 +40,7 @@ MAX_INT_BITS = 266
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 _RAT_RE = re.compile(r"^-?[0-9]{1,80}(?:/[1-9][0-9]{0,79})?$")
 _ENVELOPE_KEYS = frozenset({"schema_version", "track_id", "payload_sha256", "certificate_sha256", "payload"})
-_SAFE_LEAN_ENV_KEYS = frozenset({"PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "USER", "TERM"})
+_SAFE_LEAN_ENV_KEYS = frozenset({"PATH", "HOME", "ELAN_HOME", "LANG", "LC_ALL", "TMPDIR", "USER", "TERM"})
 _ALLOWED_LEAN_AXIOMS = frozenset({"propext", "Quot.sound"})
 
 # O(1) Lean 4 identifier character classes for Char-literal vs prime disambiguation (R13b)
@@ -74,6 +74,53 @@ _LEAN4_PRINT_LINE_RE = re.compile(r"(?m)^\s*#print\b.*$")
 _LEAN4_VALID_PRINT_RE = re.compile(r"^#print\s+axioms\s+(HoloSphereInvariants\.[A-Za-z0-9_]+)$")
 _LEAN4_AXIOM_NONE_RE = re.compile(r"^'(HoloSphereInvariants\.[A-Za-z0-9_]+)' does not depend on any axioms$")
 _LEAN4_AXIOM_DEP_RE = re.compile(r"^'(HoloSphereInvariants\.[A-Za-z0-9_]+)' depends on axioms: \[([^\]]*)\]$")
+
+# Companion pure-Init Lean 4.36.0 modules (#37-#50 -> 51/51 total public theorems)
+COMPANION_LEAN_MODULES: tuple[dict[str, Any], ...] = (
+    {
+        "filename": "HoloSphereCellOpInvariants.lean",
+        "namespace": "HoloSphereCellOpInvariants",
+        "sha256": "78c8e3bae5bd16569c539ceadc4b0f8a82fc3ee762625579687f8cddc914dfc4",
+        "theorems": (
+            "p1_blockh4_involutory_and_int8_bounds",
+            "p2_cayley_unit_ball_so3_involution_and_even",
+            "p3_cayley_exact_inverse_reversibility",
+            "p4_hadamard256_byte_orthogonality",
+            "p4b_bent_phase_preserves_orthogonality",
+        ),
+    },
+    {
+        "filename": "HoloSphereConvergenceTheorems.lean",
+        "namespace": "HoloSphereConvergenceTheorems",
+        "sha256": "6d0f7875e4a98a2e6f7292a7a5538f8daeb1ad246cc8295606ee03fbe7840765",
+        "theorems": (
+            "p41_woodbury_zero_inv_chunked_adjoint",
+            "p42_relational_macro_holonomy_left_gauge_invariance",
+            "p43_a16_hamming16_11_4_inline_secded",
+            "p44_dyadic_23bit_gumbel_strict_unit_interval",
+            "p45_su2_nonabelian_3line_adjoint_identity",
+        ),
+    },
+    {
+        "filename": "HoloSphereSpinorBarrington.lean",
+        "namespace": "HoloSphereSpinorBarrington",
+        "sha256": "972c14c36e991ab4b4c6a342bb24c499e8d7deb68749ba175d8af6893500e37e",
+        "theorems": (
+            "p46_spinor_barrington_c10_exact_closure",
+            "p47_su2_commutator_trace_and_order5_obstruction",
+            "p48_spinor_barrington_acute_cayley_ball",
+        ),
+    },
+    {
+        "filename": "HoloSphereCrossSpineBridges.lean",
+        "namespace": "HoloSphereCrossSpineBridges",
+        "sha256": "2381dd26ca5c8411e5e8b427a820a50e277938b5c3e93f59d9e8143a8ab5b040",
+        "theorems": (
+            "p49_bridge11_bent4_u4_symplectic_and_flat_wht",
+            "p50_bridge12_nonscalar_krein_holonomy_order_split",
+        ),
+    },
+)
 
 _EXPECTED_PAYLOAD_CACHE: dict[str, Any] | None = None
 
@@ -315,8 +362,15 @@ def resolve_lean_binary() -> str:
 
 
 def scrubbed_lean_env() -> dict[str, str]:
-    """Allowlist env for live Lean subprocess: drops LEAN_*, ELAN_*, LAKE_*, LD_*, DYLD_*."""
-    return {k: v for k, v in os.environ.items() if k in _SAFE_LEAN_ENV_KEYS}
+    """Allowlist env for live Lean subprocess: drops LEAN_*, ELAN_TOOLCHAIN, LAKE_*, LD_*, DYLD_*."""
+    env = {k: v for k, v in os.environ.items() if k in _SAFE_LEAN_ENV_KEYS}
+    if not env.get("ELAN_HOME"):
+        cand_bin = os.environ.get("ALETHEIA_LEAN_BIN", "") or shutil.which("lean", path=env.get("PATH"))
+        if cand_bin:
+            cand_root = Path(cand_bin).resolve().parent.parent
+            if (cand_root / "toolchains").is_dir():
+                env["ELAN_HOME"] = str(cand_root)
+    return env
 
 
 def parse_lean_axiom_output(stdout: str) -> dict[str, list[str]]:
@@ -355,9 +409,10 @@ def verify_lean4_file_live(lean_path: Path, *, check_sha: bool = True) -> dict[s
         require_ok(src_sha == oracle.LEAN_SOURCE_SHA256, "LEAN_SHA_MISMATCH", "Lean source SHA-256 mismatch")
     lean_bin = resolve_lean_binary()
     env = scrubbed_lean_env()
+    run_cwd = str(LEAN_DIR) if LEAN_DIR.is_dir() else None
     try:
-        v_proc = subprocess.run([lean_bin, "--version"], capture_output=True, text=True, timeout=60, check=False, env=env)
-        proc = subprocess.run([lean_bin, "--stdin"], input=src, capture_output=True, text=True, timeout=300, check=False, env=env)
+        v_proc = subprocess.run([lean_bin, "--version"], capture_output=True, text=True, timeout=60, check=False, env=env, cwd=run_cwd)
+        proc = subprocess.run([lean_bin, "--stdin"], input=src, capture_output=True, text=True, timeout=300, check=False, env=env, cwd=run_cwd)
     except (OSError, subprocess.SubprocessError) as exc:
         raise HoloSphereLeanError("LEAN_EXEC_ERROR", f"lean execution failed: {exc.__class__.__name__}") from exc
     require_ok(v_proc.returncode == 0, "LEAN_VERSION_MISMATCH", "lean --version failed")
@@ -370,6 +425,113 @@ def verify_lean4_file_live(lean_path: Path, *, check_sha: bool = True) -> dict[s
         "lean_version": v_proc.stdout.strip().splitlines()[0],
         "theorems_verified": len(seen),
         "lean_source_sha256": src_sha,
+    }
+
+
+def verify_companion_lean4_module_live(spec: dict[str, Any], lean_dir: Path = LEAN_DIR, *, check_sha: bool = True) -> dict[str, Any]:
+    """Verify a companion pure-Init Lean 4.36.0 module via full R13b static gate + live scrubbed lean."""
+    ns = str(spec["namespace"])
+    short_names = tuple(spec["theorems"])
+    full_names = tuple(f"{ns}.{short}" for short in short_names)
+    lean_path = lean_dir / str(spec["filename"])
+    raw = read_regular_bytes_capped(lean_path, f"lean_source:{ns}")
+    try:
+        src = raw.decode("utf-8", "strict")
+    except UnicodeDecodeError as exc:
+        raise HoloSphereLeanError("INVALID_UTF8", f"{ns}: Lean file invalid UTF-8") from exc
+    require_ok("\r" not in src and "\x00" not in src, "LEAN4_BAD_CHARS", f"{ns}: CR/NUL forbidden")
+    hits = lean4_rule_hits(src)
+    require_ok(hits == [], "LEAN4_TRUST_ESCAPE", f"{ns}: banned Lean construct(s): {hits}")
+    stripped = strip_lean4_source(src)
+    valid_print_re = re.compile(rf"^#print\s+axioms\s+({re.escape(ns)}\.[A-Za-z0-9_]+)$")
+    seen_prints: list[str] = []
+    for pm in _LEAN4_PRINT_LINE_RE.finditer(stripped):
+        vm = valid_print_re.match(pm.group(0).strip())
+        require_ok(vm is not None, "LEAN4_BAD_PRINT", f"{ns}: disallowed #print: {pm.group(0)[:80]!r}")
+        seen_prints.append(vm.group(1))
+    require_ok(seen_prints == list(full_names), "LEAN4_PRINT_SET_MISMATCH", f"{ns}: #print axioms mismatch")
+    for short in short_names:
+        require_ok(
+            re.search(rf"(?m)^theorem\s+{re.escape(short)}\b", stripped) is not None,
+            "LEAN4_MISSING_THEOREM",
+            f"{ns}: missing theorem {short}",
+        )
+    src_sha = oracle.sha256_hex(raw)
+    if check_sha:
+        require_ok(src_sha == str(spec["sha256"]), "LEAN_SHA_MISMATCH", f"{ns}: SHA-256 mismatch")
+
+    lean_bin = resolve_lean_binary()
+    env = scrubbed_lean_env()
+    run_cwd = str(LEAN_DIR) if LEAN_DIR.is_dir() else None
+    try:
+        v_proc = subprocess.run([lean_bin, "--version"], capture_output=True, text=True, timeout=60, check=False, env=env, cwd=run_cwd)
+        proc = subprocess.run([lean_bin, "--stdin"], input=src, capture_output=True, text=True, timeout=300, check=False, env=env, cwd=run_cwd)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise HoloSphereLeanError("LEAN_EXEC_ERROR", f"{ns}: lean execution failed ({exc.__class__.__name__})") from exc
+    require_ok(v_proc.returncode == 0 and "version 4.36.0," in v_proc.stdout, "LEAN_VERSION_MISMATCH", f"{ns}: expected Lean 4.36.0")
+    require_ok(proc.returncode == 0, "LEAN_COMPILE_FAIL", f"{ns}: lean rc={proc.returncode}")
+    require_ok(proc.stderr == "", "LEAN_STDERR_NONEMPTY", f"{ns}: lean stderr non-empty")
+    require_ok("warning" not in proc.stdout.lower(), "LEAN_WARNING_FORBIDDEN", f"{ns}: lean warning emitted")
+
+    ax_none_re = re.compile(rf"^'({re.escape(ns)}\.[A-Za-z0-9_]+)' does not depend on any axioms$")
+    ax_dep_re = re.compile(rf"^'({re.escape(ns)}\.[A-Za-z0-9_]+)' depends on axioms: \[([^\]]*)\]$")
+    seen_ax: dict[str, list[str]] = {}
+    lines = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+    idx = 0
+    while idx < len(lines):
+        ln = lines[idx]
+        idx += 1
+        while "depends on axioms: [" in ln and not ln.endswith("]") and idx < len(lines):
+            ln = ln + " " + lines[idx]
+            idx += 1
+        m_none = ax_none_re.match(ln)
+        m_dep = ax_dep_re.match(ln)
+        require_ok(m_none is not None or m_dep is not None, "LEAN_UNEXPECTED_STDOUT", f"{ns}: unexpected line {ln[:80]!r}")
+        m = m_none if m_none is not None else m_dep
+        tname = m.group(1)
+        require_ok(tname not in seen_ax, "LEAN_DUPLICATE_THEOREM", f"{ns}: duplicate {tname}")
+        axs = [] if m_dep is None else [a.strip() for a in m_dep.group(2).split(",") if a.strip()]
+        for ax in axs:
+            require_ok(ax in _ALLOWED_LEAN_AXIOMS, "LEAN_FORBIDDEN_AXIOM", f"{ns}: forbidden axiom {ax}")
+        seen_ax[tname] = axs
+    require_ok(frozenset(seen_ax) == frozenset(full_names), "LEAN_THEOREM_SET_MISMATCH", f"{ns}: axiom set mismatch")
+    return {
+        "module": ns,
+        "filename": str(spec["filename"]),
+        "theorems_verified": len(seen_ax),
+        "lean_source_sha256": src_sha,
+        "axioms": seen_ax,
+    }
+
+
+def verify_all_lean_modules_live(lean_dir: Path = LEAN_DIR, *, check_sha: bool = True) -> dict[str, Any]:
+    """Verify all 5 pure-Init Lean 4.36.0 modules (51/51 public zero-Classical.choice theorems)."""
+    core = verify_lean4_file_live(lean_dir / oracle.LEAN_FILE_NAME, check_sha=check_sha)
+    modules: list[dict[str, Any]] = [
+        {
+            "module": "HoloSphereInvariants",
+            "filename": oracle.LEAN_FILE_NAME,
+            "theorems_verified": core["theorems_verified"],
+            "lean_source_sha256": core["lean_source_sha256"],
+        }
+    ]
+    total = int(core["theorems_verified"])
+    for spec in COMPANION_LEAN_MODULES:
+        mres = verify_companion_lean4_module_live(spec, lean_dir=lean_dir, check_sha=check_sha)
+        modules.append(
+            {
+                "module": mres["module"],
+                "filename": mres["filename"],
+                "theorems_verified": mres["theorems_verified"],
+                "lean_source_sha256": mres["lean_source_sha256"],
+            }
+        )
+        total += int(mres["theorems_verified"])
+    return {
+        "lean_version": core["lean_version"],
+        "modules_verified": len(modules),
+        "total_theorems_verified": total,
+        "modules": modules,
     }
 
 
@@ -652,7 +814,7 @@ def main(argv: list[str] | None = None) -> int:
             if tok == "--json":
                 as_json = True
                 i += 1
-            elif tok in ("--check", "--write", "--verify-lean"):
+            elif tok in ("--check", "--write", "--verify-lean", "--verify-all-lean"):
                 require_ok(mode == "", "CONFLICTING_FLAGS", f"duplicate mode flag {tok}")
                 mode = tok
                 i += 1
@@ -678,11 +840,16 @@ def main(argv: list[str] | None = None) -> int:
         elif mode == "--check":
             cert_path = DEFAULT_CERT_PATH if target is None else target
             res = verify_certificate_file(cert_path, full_replay=True)
+        elif mode == "--verify-all-lean":
+            lean_dir = LEAN_DIR if target is None else target
+            res = verify_all_lean_modules_live(lean_dir, check_sha=True)
         else:
             lean_path = DEFAULT_LEAN_PATH if target is None else target
             res = verify_lean4_file_live(lean_path, check_sha=True)
         if as_json:
             sys.stdout.write(json.dumps(res, sort_keys=True) + "\n")
+        elif mode == "--verify-all-lean":
+            sys.stdout.write(f"LEAN_ALL_OK modules={res['modules_verified']} theorems={res['total_theorems_verified']}\n")
         elif mode == "--verify-lean":
             sys.stdout.write(f"LEAN_OK theorems={res['theorems_verified']} sha256={res['lean_source_sha256']}\n")
         else:

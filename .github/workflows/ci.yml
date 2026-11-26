@@ -35,13 +35,19 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -I -B holosphere/benchmarks/prereg_s114_suite.py --cpu-preflight --json
-      - name: Optional Lean 4.36.0 invariant replay (runs when lean toolchain is installed)
+      - name: Lean 4.36.0 static R13b certificate gate & optional live 51-theorem replay
         env:
           CUDA_VISIBLE_DEVICES: ""
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
+          python3 -I -B lean/verify_holosphere_lean.py --check --json
           if python3 -I -B -c "import shutil, sys; sys.exit(0 if shutil.which('lean') else 1)"; then
-            python3 -I -B lean/verify_holosphere_lean.py --check --json
+            python3 -I -B lean/verify_holosphere_lean.py --verify-all-lean --json
           else
-            echo "lean 4.36.0 not installed on runner; run 'make lean-verify' locally with lean 4.36.0"
+            echo "::notice title=Lean 4.36.0 live replay skipped::lean binary not preinstalled on ubuntu-latest; static R13b/SHA-256 --check passed. Run 'make lean-verify' locally with lean 4.36.0."
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              echo "### Lean 4.36.0 Verification" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Static R13b + SHA-256 certificate check (\`--check\`): **PASS**" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Live \`lean --verify-all-lean\` (5 modules, 51 theorems): **SKIPPED** (\`lean\` not installed on runner; run \`make lean-verify\` locally with \`leanprover/lean4:v4.36.0\`)." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
