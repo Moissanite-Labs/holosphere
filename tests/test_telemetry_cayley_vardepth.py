@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -205,24 +206,30 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
             )
         self.assertEqual(cm_ov_tel.exception.code, "TEL_STEP_MS")
 
-        # Cross-repo 128/128 profile_sha256() parity vs sibling Moissanite-Labs/silisense when present locally
+     # Cross-repo 128/128 profile_sha256() parity (always-on pinned digest + live sibling check)
+        cases = [
+            (b, bt, mbs, cd, rl)
+            for b in ("auto", "cuda_sm86", "triton", "torch_cpu")
+            for bt in (32, 64, 128, 256)
+            for mbs in (None, 4)
+            for cd in (0, 0.0, -0.0, 2.5)
+            for rl in (None,)
+        ]
+        self.assertEqual(len(cases), 128)
+        local_hashes = [
+            HoloSphereTuningProfile(
+                backend=b, block_t=bt, microbatch_size=mbs, inter_step_cooldown_ms=cd, r_loops_override=rl
+            ).profile_sha256()
+            for b, bt, mbs, cd, rl in cases
+        ]
+        self.assertEqual(len(set(local_hashes)), 64)
+        grid_digest = hashlib.sha256(
+            json.dumps(local_hashes, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+        ).hexdigest()
+        self.assertEqual(grid_digest, "cd9f310972496e171bacee072ccbbe36113c708940af279079c257625695516d")
+
         silisense_root = REPO_ROOT.parent / "silisense"
         if silisense_root.is_dir():
-            cases = [
-                (b, bt, mbs, cd, rl)
-                for b in ("auto", "cuda_sm86", "triton", "torch_cpu")
-                for bt in (32, 64, 128, 256)
-                for mbs in (None, 4)
-                for cd in (0, 0.0, -0.0, 2.5)
-                for rl in (None,)
-            ]
-            self.assertEqual(len(cases), 128)
-            local_hashes = [
-                HoloSphereTuningProfile(
-                    backend=b, block_t=bt, microbatch_size=mbs, inter_step_cooldown_ms=cd, r_loops_override=rl
-                ).profile_sha256()
-                for b, bt, mbs, cd, rl in cases
-            ]
             sili_probe = (
                 f"import json, sys; sys.path.insert(0, {str(silisense_root)!r}); "
                 "from silisense.holosphere_bridge import HoloSphereTuningProfile; "
