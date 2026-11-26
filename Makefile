@@ -2,7 +2,7 @@ PYTHON ?= python3
 NVCC ?= nvcc
 CUDA_ARCH ?= sm_86
 
-.PHONY: help test test-3mode bench-cpu lean-verify lean-test cuda-build audit-hygiene clean
+.PHONY: help test test-3mode bench-cpu lean-verify lean-test cuda-build check-zero-spill audit-hygiene clean
 
 help:
 	@echo "HoloSphere targets:"
@@ -11,7 +11,8 @@ help:
 	@echo "  make bench-cpu     Run PREREG-S114 CPU preflight parity & gradcheck benchmark"
 	@echo "  make lean-verify   Verify pure-Init Lean 4.36.0 suite (5 modules, 51 theorems, 0 sorryAx)"
 	@echo "  make lean-test     Run 3-mode isolated -I Lean R5 verification test suite"
-	@echo "  make cuda-build    Compile bare-metal sm_86 CUDA kernel (printing ptxas register & spill stats)"
+	@echo "  make cuda-build       Compile all bare-metal sm_86 CUDA kernels (printing ptxas stats)"
+	@echo "  make check-zero-spill Verify sm_86 ptxas zero-spill receipts and cu_sha256 source bindings"
 	@echo "  make audit-hygiene Verify 0 bare asserts, 0 /home/ leaks, 0 weights, 0 __pycache__"
 	@echo "  make clean         Remove build artifacts and bytecode"
 
@@ -40,13 +41,20 @@ lean-test:
 	done
 
 cuda-build:
-	@if [ ! -f holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu ]; then \
-		echo "NOTE: su2_holonomy_scan_sm86.cu not yet staged in holosphere/kernels/csrc/"; \
-		exit 0; \
-	fi
-	$(NVCC) -O3 -std=c++17 -arch=$(CUDA_ARCH) --ptxas-options=-v -Xcompiler -fPIC -shared \
-		holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu \
-		-o holosphere/kernels/csrc/libsu2_holonomy_sm86.so
+	@set -e; \
+	for pair in \
+		"su2_holonomy_scan_sm86.cu:libsu2_holonomy_sm86.so" \
+		"holosphere_h256_chunk32_sm86.cu:libholosphere_h256_chunk32_sm86.so" \
+		"holosphere_v3_frontier_sm86.cu:libholosphere_v3_frontier_sm86.so"; do \
+		cu="holosphere/kernels/csrc/$${pair%%:*}"; \
+		so="holosphere/kernels/csrc/$${pair##*:}"; \
+		if [ -f "$$cu" ]; then \
+			$(NVCC) -O3 -std=c++17 -arch=$(CUDA_ARCH) --ptxas-options=-v -Iinclude -Xcompiler -fPIC -shared "$$cu" -o "$$so"; \
+		fi; \
+	done
+
+check-zero-spill:
+	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B -c "import hashlib, json, pathlib, sys; root = pathlib.Path('holosphere/kernels/csrc'); [sys.exit(f'FAIL {r}') if (d := json.loads((root / r).read_text('utf-8')))['nonzero_spill_kernels'] != 0 or hashlib.sha256((root / d['cu_filename']).read_bytes()).hexdigest() != d['cu_sha256'] else print('OK', r, d['total_kernels'], 'kernels') for r in ('ptxas_s117_zero_spill_receipt.json', 'ptxas_v3_frontier_zero_spill_receipt.json')]"
 
 audit-hygiene:
 	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B tests/test_repo_hygiene.py -v
