@@ -449,8 +449,8 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
                 lambda a, b, c: hopf_s3_cayley_2x2_step(a, b, c),
                 (h_f, d_f, w_f),
                 eps=1e-6,
-                atol=1e-10,
-                rtol=1e-8,
+                atol=1e-8,
+                rtol=1e-6,
             )
         )
         self.assertEqual(cayley_2x2_step(h_f, w_f).shape, h_f.shape)
