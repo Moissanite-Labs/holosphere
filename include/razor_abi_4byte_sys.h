@@ -7,6 +7,11 @@
  * PCIe atomic traffic on clean cycles and drop-in offset-0 compatibility with a 4-byte
  * `uint32_t* host_ber_canary` pointer.
  *
+ * Layout-compatible with Moissanite-Labs/silisense (same 64 B / 16 B wire layouts,
+ * field offsets, and helper semantics; this header carries Apache-2.0 SPDX and
+ * HOLOSPHERE_RAZOR_ABI_4BYTE_SYS_H include guard, while silisense uses MIT and its
+ * own include guard).
+ *
  * SPDX-License-Identifier: Apache-2.0
  */
 

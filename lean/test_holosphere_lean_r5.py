@@ -105,6 +105,12 @@ class Test01OraclePrimitivesAndCLI(unittest.TestCase):
         with self.assertRaises(oracle.HoloSphereOracleError) as cm_mv:
             oracle.mat_vec_q([[Fraction(1), Fraction(2)]], [Fraction(1)])
         self.assertEqual(cm_mv.exception.code, "DIM_MISMATCH")
+        with self.assertRaises(oracle.HoloSphereOracleError) as cm_mve:
+            oracle.mat_vec_q([], [])
+        self.assertEqual(cm_mve.exception.code, "EMPTY_MATRIX")
+        with self.assertRaises(oracle.HoloSphereOracleError) as cm_rce:
+            oracle.row_concentration_q([])
+        self.assertEqual(cm_rce.exception.code, "EMPTY_MATRIX")
         with self.assertRaises(oracle.HoloSphereOracleError) as cm_zn:
             oracle.row_concentration_q([[Fraction(0), Fraction(0)]])
         self.assertEqual(cm_zn.exception.code, "ZERO_NORM_MATRIX")
@@ -123,7 +129,9 @@ class Test01OraclePrimitivesAndCLI(unittest.TestCase):
         finally:
             sys.stdout = old_out
         summary = json.loads(buf_sum.getvalue())
-        self.assertEqual(summary["lean_theorems"], 36)
+        self.assertEqual(summary["lean_modules"], 5)
+        self.assertEqual(summary["lean_theorems"], 51)
+        self.assertEqual(summary["core_theorems"], 36)
         self.assertEqual(summary["certificate_sha256"], FROZEN_CERT["certificate_sha256"])
         self.assertEqual(buf_std.getvalue().encode("utf-8"), CERT_PATH.read_bytes())
         with self.assertRaises(oracle.HoloSphereOracleError) as cm_arg:
@@ -245,13 +253,20 @@ class Test03R13bLeanLexerAndStaticGate(unittest.TestCase):
             ("R01_LITERAL_OR_GUILLEMET", "def «bad» := 1"),
             ("R02_IMPORT", "import Init"),
             ("R03_SORRY_ADMIT", "theorem t : True := sorry"),
+            ("R03_SORRY_ADMIT", "def f := Lean.ofReduceBool"),
+            ("R03_SORRY_ADMIT", "def f := Lean.trustCompiler"),
             ("R04_AXIOM_DECL", "axiom bad : False"),
+            ("R04_AXIOM_DECL", "@[simp] axiom bad : False"),
             ("R05_UNSAFE_EXTERN", "unsafe def f := 1"),
             ("R05_UNSAFE_EXTERN", "@[implemented_by foo] def f := 1"),
+            ("R05_UNSAFE_EXTERN", "attribute [implemented_by foo] bar"),
             ("R06_OPAQUE_PARTIAL", "partial def f : Nat := f"),
             ("R06_OPAQUE_PARTIAL", "opaque g : Nat"),
             ("R07_NATIVE_DECIDE", "theorem t : True := by native_decide"),
+            ("R07_NATIVE_DECIDE", "theorem t : True := by bv_decide"),
+            ("R07_NATIVE_DECIDE", "theorem t : True := by bv_check"),
             ("R07_NATIVE_DECIDE", "theorem t : True := by decide +native"),
+            ("R07_NATIVE_DECIDE", "theorem t : True := by decide (native := true)"),
             ("R08_DBG_TRACE", "def f := dbg_trace 1"),
             ("R08_DBG_TRACE", "def f := dbgSleep 1"),
             ("R09_INIT_EXPORT_ATTR", "@[export foo] def f := 1"),
@@ -385,6 +400,13 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
             (["n2_claims"], 1, "SEC_N2_ZERO"),
             (["lean_companion", "named_theorem_count"], 35, "SEC_LEAN_CNT"),
             (["lean_companion", "total_theorem_declarations"], 99, "SEC_LEAN_TOTAL"),
+            (["lean_suite", "module_count"], 4, "SEC_SUITE_MOD_CNT"),
+            (["lean_suite", "total_named_theorems"], 50, "SEC_SUITE_THM_CNT"),
+            (["lean_suite", "zero_classical_choice"], False, "SEC_SUITE_AXIOM_FLAGS"),
+            (["lean_suite", "zero_sorry_ax"], False, "SEC_SUITE_AXIOM_FLAGS"),
+            (["lean_suite", "allowed_axioms", 0], "Classical.choice", "SEC_SUITE_AXIOMS"),
+            (["lean_suite", "modules", 0, "named_theorem_count"], 35, "SEC_SUITE_MOD_SUM"),
+            (["lean_suite", "modules", 0, "sha256"], "Z" * 64, "SEC_SUITE_MOD_SHAPE"),
             (["pillar1_su2_scan_and_suffix_adjoint", "assoc_diff_sq_q"], "1", "SEC_P1_ASSOC"),
             (["pillar1_su2_scan_and_suffix_adjoint", "nonabelian_commutator_norm_sq_q"], "0", "SEC_P1_NONABELIAN"),
             (["pillar1_su2_scan_and_suffix_adjoint", "final_pi7_norm_sq_q"], "2", "SEC_P1_UNIT_NORM"),
@@ -452,6 +474,33 @@ class Test04SemanticAndShapeAudits(unittest.TestCase):
         with self.assertRaises(ver.HoloSphereLeanError) as cm_sh:
             ver.secondary_audit_payload({"wrong_key": 1})
         self.assertEqual(cm_sh.exception.code, "SCHEMA_SHAPE_MISMATCH")
+
+        # Direct _independent_semantics controls for list-length & swapped-sum lean_suite guards
+        p_swap = ver.expected_payload()
+        p_swap["lean_suite"]["modules"][0]["named_theorem_count"] = 35
+        p_swap["lean_suite"]["modules"][1]["named_theorem_count"] = 6
+        with self.assertRaises(ver.HoloSphereLeanError) as cm_ms:
+            ver._independent_semantics(p_swap)
+        self.assertEqual(cm_ms.exception.code, "SEC_SUITE_MOD_SHAPE")
+
+        p_all = ver.expected_payload()
+        p_all["lean_suite"]["all_theorem_names"].pop()
+        with self.assertRaises(ver.HoloSphereLeanError) as cm_an:
+            ver._independent_semantics(p_all)
+        self.assertEqual(cm_an.exception.code, "SEC_SUITE_ALL_NAMES")
+
+        # Exact equality boundary controls (kills >= -> > and <= -> < mutants in _independent_semantics)
+        for path, eq_val in (
+            (["pillar3_cayley_safe_hopf_and_fiber", "min_schedule_cos_q"], "9/41"),
+            (["pillar4_beltrami_bingham_darboux", "bingham_pol_in_norm_sq_q"], "9"),
+            (["pillar5_weft_crow_safety_and_rollback", "c_row_patch1_q"], "3/5"),
+            (["pillar5_weft_crow_safety_and_rollback", "c_row_patch2_q"], "3/5"),
+        ):
+            p_eq = ver.expected_payload()
+            _set_path(p_eq, path, eq_val)
+            if path[-1] == "c_row_patch1_q":
+                p_eq["pillar5_weft_crow_safety_and_rollback"]["c_row_post_isotropic_sleep_q"] = eq_val
+            ver._independent_semantics(p_eq)
 
 
 class Test05ExhaustiveLeafSweepAndEnvelope(unittest.TestCase):

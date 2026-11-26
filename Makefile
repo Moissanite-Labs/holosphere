@@ -59,3 +59,13 @@ clean:
 	rm -rf build dist *.egg-info holosphere/kernels/csrc/*.so holosphere/kernels/csrc/*.o
 	find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 	find . -name "*.pyc" -delete
+
+.PHONY: cuda-build-all cuda-verify-ptxas
+
+cuda-build-all:
+	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B holosphere/kernels/ptxas_check.py \
+		--nvcc "$(NVCC)" --arch "$(CUDA_ARCH)" --compile --json
+
+cuda-verify-ptxas:
+	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B holosphere/kernels/ptxas_check.py \
+		--verify-receipts --json

@@ -52,13 +52,19 @@ _LEAN4_ID_REST = _LEAN4_ID_FIRST | frozenset("0123456789'!?")
 LEAN4_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("R01_LITERAL_OR_GUILLEMET", re.compile(r'["«»]')),
     ("R02_IMPORT", re.compile(r"(?m)^\s*import\b")),
-    ("R03_SORRY_ADMIT", re.compile(r"\b(?:sorry|admit|sorryAx)\b")),
-    ("R04_AXIOM_DECL", re.compile(r"(?m)^\s*(?:private\s+|protected\s+)?axiom\b")),
-    ("R05_UNSAFE_EXTERN", re.compile(r"\bunsafe\b|@\[[^\]]*\b(?:extern|implemented_by|csimp)\b")),
+    ("R03_SORRY_ADMIT", re.compile(r"\b(?:sorry|admit|sorryAx|ofReduceBool|trustCompiler)\b")),
+    ("R04_AXIOM_DECL", re.compile(r"(?<!\.)\baxiom\b")),
+    ("R05_UNSAFE_EXTERN", re.compile(r"\bunsafe\b|(?:@|attribute\s+)\[[^\]]*\b(?:extern|implemented_by|csimp)\b")),
     ("R06_OPAQUE_PARTIAL", re.compile(r"\b(?:opaque|partial|noncomputable)\b")),
-    ("R07_NATIVE_DECIDE", re.compile(r"\bnative_decide\b|\bdecide\s*\+\s*(?:native|revert)\b")),
+    (
+        "R07_NATIVE_DECIDE",
+        re.compile(r"\bnative_decide\b|\bbv_(?:decide|check)\b|\bdecide\s*\+\s*(?:native|revert)\b|\bdecide\s*\([^)]*\bnative\b"),
+    ),
     ("R08_DBG_TRACE", re.compile(r"\b(?:dbg_trace|dbgTrace|dbgTraceVal|dbgTraceIfShared|dbgSleep|dbgStackTrace)\b")),
-    ("R09_INIT_EXPORT_ATTR", re.compile(r"@\[[^\]]*\b(?:export|init|builtin_init)\b|\b(?:initialize|builtin_initialize)\b")),
+    (
+        "R09_INIT_EXPORT_ATTR",
+        re.compile(r"(?:@|attribute\s+)\[[^\]]*\b(?:export|init|builtin_init)\b|\b(?:initialize|builtin_initialize)\b"),
+    ),
     ("R10_GUARD_MSGS", re.compile(r"#guard_msgs\b")),
     ("R11_WARN_SORRY_OPT", re.compile(r"\b(?:warn\.sorry|terminalTacticsAsSorry|allowUnsafeReducibility)\b")),
     ("R12_META_EVAL_CMD", re.compile(r"#(?:eval|reduce|synth|check_failure)\b|\brun_cmd\b|\brun_meta\b")),
@@ -75,52 +81,8 @@ _LEAN4_VALID_PRINT_RE = re.compile(r"^#print\s+axioms\s+(HoloSphereInvariants\.[
 _LEAN4_AXIOM_NONE_RE = re.compile(r"^'(HoloSphereInvariants\.[A-Za-z0-9_]+)' does not depend on any axioms$")
 _LEAN4_AXIOM_DEP_RE = re.compile(r"^'(HoloSphereInvariants\.[A-Za-z0-9_]+)' depends on axioms: \[([^\]]*)\]$")
 
-# Companion pure-Init Lean 4.36.0 modules (#37-#50 -> 51/51 total public theorems)
-COMPANION_LEAN_MODULES: tuple[dict[str, Any], ...] = (
-    {
-        "filename": "HoloSphereCellOpInvariants.lean",
-        "namespace": "HoloSphereCellOpInvariants",
-        "sha256": "78c8e3bae5bd16569c539ceadc4b0f8a82fc3ee762625579687f8cddc914dfc4",
-        "theorems": (
-            "p1_blockh4_involutory_and_int8_bounds",
-            "p2_cayley_unit_ball_so3_involution_and_even",
-            "p3_cayley_exact_inverse_reversibility",
-            "p4_hadamard256_byte_orthogonality",
-            "p4b_bent_phase_preserves_orthogonality",
-        ),
-    },
-    {
-        "filename": "HoloSphereConvergenceTheorems.lean",
-        "namespace": "HoloSphereConvergenceTheorems",
-        "sha256": "6d0f7875e4a98a2e6f7292a7a5538f8daeb1ad246cc8295606ee03fbe7840765",
-        "theorems": (
-            "p41_woodbury_zero_inv_chunked_adjoint",
-            "p42_relational_macro_holonomy_left_gauge_invariance",
-            "p43_a16_hamming16_11_4_inline_secded",
-            "p44_dyadic_23bit_gumbel_strict_unit_interval",
-            "p45_su2_nonabelian_3line_adjoint_identity",
-        ),
-    },
-    {
-        "filename": "HoloSphereSpinorBarrington.lean",
-        "namespace": "HoloSphereSpinorBarrington",
-        "sha256": "972c14c36e991ab4b4c6a342bb24c499e8d7deb68749ba175d8af6893500e37e",
-        "theorems": (
-            "p46_spinor_barrington_c10_exact_closure",
-            "p47_su2_commutator_trace_and_order5_obstruction",
-            "p48_spinor_barrington_acute_cayley_ball",
-        ),
-    },
-    {
-        "filename": "HoloSphereCrossSpineBridges.lean",
-        "namespace": "HoloSphereCrossSpineBridges",
-        "sha256": "2381dd26ca5c8411e5e8b427a820a50e277938b5c3e93f59d9e8143a8ab5b040",
-        "theorems": (
-            "p49_bridge11_bent4_u4_symplectic_and_flat_wht",
-            "p50_bridge12_nonscalar_krein_holonomy_order_split",
-        ),
-    },
-)
+# Companion pure-Init Lean 4.36.0 modules (#37-#50 -> 51/51 total public theorems; single source of truth)
+COMPANION_LEAN_MODULES: tuple[dict[str, Any], ...] = oracle.LEAN_COMPANION_MODULES
 
 _EXPECTED_PAYLOAD_CACHE: dict[str, Any] | None = None
 
@@ -595,6 +557,29 @@ def _independent_semantics(p: dict[str, Any]) -> None:
         lc["named_theorem_count"] + lc["helper_theorem_count"] == lc["total_theorem_declarations"],
         "SEC_LEAN_TOTAL",
         "theorem declaration sum mismatch",
+    )
+    ls = p["lean_suite"]
+    require_ok(ls["module_count"] == 5, "SEC_SUITE_MOD_CNT", "5 pure-Init Lean modules required")
+    require_ok(ls["total_named_theorems"] == 51, "SEC_SUITE_THM_CNT", "51 total named theorems required")
+    require_ok(
+        ls["zero_classical_choice"] is True and ls["zero_sorry_ax"] is True,
+        "SEC_SUITE_AXIOM_FLAGS",
+        "zero_classical_choice and zero_sorry_ax must be True",
+    )
+    require_ok(ls["allowed_axioms"] == ["propext", "Quot.sound"], "SEC_SUITE_AXIOMS", "allowed_axioms mismatch")
+    mod_sum = sum(m["named_theorem_count"] for m in ls["modules"])
+    require_ok(mod_sum == ls["total_named_theorems"], "SEC_SUITE_MOD_SUM", "module theorem count sum mismatch")
+    for mod in ls["modules"]:
+        require_ok(
+            _HEX64_RE.fullmatch(mod["sha256"]) is not None
+            and len(mod["theorem_names"]) == mod["named_theorem_count"],
+            "SEC_SUITE_MOD_SHAPE",
+            f"invalid module entry {mod['module']}",
+        )
+    require_ok(
+        len(ls["all_theorem_names"]) == ls["total_named_theorems"],
+        "SEC_SUITE_ALL_NAMES",
+        "all_theorem_names count mismatch",
     )
 
     # Pillar 1: SU(2) Associative Scan & Suffix-Sum Adjoint Collapse + cayley_su2 + Local-S^3

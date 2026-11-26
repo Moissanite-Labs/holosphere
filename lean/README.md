@@ -1,6 +1,8 @@
 # HoloSphere Pure-`Init` Lean 4.36.0 Algebraic Invariants
 
-Machine-checked formal proofs for **Project HoloSphere** (`HoloSphereInvariants.lean`), compiled strictly in **Pure `Init` `Lean 4.36.0`** (`0` external imports, `0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` `native_decide`, `0` compiler warnings; every public theorem depends solely on subsets of `{propext, Quot.sound}`).
+Machine-checked formal proofs for **Project HoloSphere** (`5` pure-`Init` modules, **`51/51`** public theorems), compiled strictly in **Pure `Init` `Lean 4.36.0`** (`0` external imports, `0` Mathlib, `0` `Classical.choice`, `0` `sorryAx`, `0` `native_decide`, `0` `bv_decide`, `0` compiler warnings; every public theorem depends solely on subsets of `{propext, Quot.sound}`).
+
+- **5-Module / 51-Theorem Frozen Certificate (`lean/holosphere_lean_certificate.json`):** Cryptographically binds all `5` `.lean` source SHA-256 hashes, all `51` theorem names (`lean_suite`), and exact pure-$\mathbb{Q}$ witness payloads (`certificate_sha256 = 35f94fd633eb344c4f1c2dfd562bc26e96878c426f7d25544f4d4a6b88387eb5`, `payload_sha256 = e2a15396d169241e8b32560bcad4ffa396e7f11f9fad4614a554d1eb54264a56`).
 
 ---
 
