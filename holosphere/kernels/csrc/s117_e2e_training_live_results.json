@@ -1,0 +1,63 @@
+{
+  "benchmarks": {
+    "core_chunk32_6L_B4_T8192_fwd_bwd": {
+      "cuda_launches_per_layer": 3,
+      "mj_per_tok_6L_fwd_bwd": 0.725,
+      "ms_per_6L_fwd_bwd": 242.277,
+      "slot6_python_ctypes_launches_per_layer": 512,
+      "tok_per_sec_6L_fwd_bwd": 135250.38
+    },
+    "row3_15m_B1_T8192_prefill_fused": {
+      "B": 1,
+      "T": 8192,
+      "energy_reduction_vs_slot6_3p89mj_x": 3.318,
+      "iters": 8,
+      "mj_per_tok": 1.1728,
+      "peak_vram_mib": 443.06,
+      "tok_per_sec": 47781.41,
+      "wall_s": 1.3716
+    },
+    "row3_15m_B2_T8192_train_fused_nogc": {
+      "B": 2,
+      "T": 8192,
+      "mj_per_tok": 3.0285,
+      "peak_vram_mib": 5294.31,
+      "speedup_vs_slot6_b4_9572": 2.493,
+      "speedup_vs_slot6_row3_7851": 3.039,
+      "steps": 4,
+      "tok_per_sec": 23860.75,
+      "wall_s": 2.7466
+    },
+    "row3_15m_B4_T8192_train_fused_gc": {
+      "B": 4,
+      "T": 8192,
+      "mj_per_tok": 3.1432,
+      "peak_vram_mib": 2768.9,
+      "speedup_vs_slot6_b4_9572": 2.513,
+      "speedup_vs_slot6_row3_7851": 3.064,
+      "steps": 4,
+      "tok_per_sec": 24053.71,
+      "wall_s": 5.4491
+    }
+  },
+  "device": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "fast_vring_einsum_max_diff_vs_broadcast": 3.338e-06,
+  "fp64_autograd_parity_T96_3chunks": {
+    "fwd_max_abs_err": 1.933e-07,
+    "grad_max_abs_errs": {
+      "grad_S_0": 0.0002226,
+      "grad_U_0": 0.0002418,
+      "grad_W_q": 9.697e-05,
+      "grad_w_su2": 0.0003062,
+      "grad_x": 0.0002155
+    },
+    "pass_lt_5e4": true,
+    "worst_err": 0.0003062
+  },
+  "fused_a16_ste_cuda_max_diff_vs_pytorch": 0.0,
+  "schema": "holosphere.track_s117.e2e_training_engine_live.v1",
+  "torch_compile_fullgraph_inductor": {
+    "max_diff_vs_eager": 0.0,
+    "zero_graph_breaks_pass": true
+  }
+}

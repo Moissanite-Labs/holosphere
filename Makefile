@@ -2,18 +2,19 @@ PYTHON ?= python3
 NVCC ?= nvcc
 CUDA_ARCH ?= sm_86
 
-.PHONY: help test test-3mode bench-cpu lean-verify lean-test cuda-build audit-hygiene clean
+.PHONY: help test test-3mode bench-cpu lean-verify lean-test cuda-build cuda-verify-e2e audit-hygiene clean
 
 help:
 	@echo "HoloSphere targets:"
-	@echo "  make test          Run CPU unit test suite (CUDA_VISIBLE_DEVICES='')"
-	@echo "  make test-3mode    Run 3-mode isolated -I parity (-I -B, -I -O -B, -I -B -W error)"
-	@echo "  make bench-cpu     Run PREREG-S114 CPU preflight parity & gradcheck benchmark"
-	@echo "  make lean-verify   Verify pure-Init Lean 4.36.0 suite (5 modules, 51 theorems, 0 sorryAx)"
-	@echo "  make lean-test     Run 3-mode isolated -I Lean R5 verification test suite"
-	@echo "  make cuda-build    Compile bare-metal sm_86 CUDA kernel (printing ptxas register & spill stats)"
-	@echo "  make audit-hygiene Verify 0 bare asserts, 0 /home/ leaks, 0 weights, 0 __pycache__"
-	@echo "  make clean         Remove build artifacts and bytecode"
+	@echo "  make test            Run CPU unit test suite (CUDA_VISIBLE_DEVICES='')"
+	@echo "  make test-3mode      Run 3-mode isolated -I parity (-I -B, -I -O -B, -I -B -W error)"
+	@echo "  make bench-cpu       Run PREREG-S114 CPU preflight parity & gradcheck benchmark"
+	@echo "  make lean-verify     Verify pure-Init Lean 4.36.0 suite (5 modules, 51 theorems, 0 sorryAx)"
+	@echo "  make lean-test       Run 3-mode isolated -I Lean R5 verification test suite"
+	@echo "  make cuda-build      Compile bare-metal sm_86 CUDA kernel (printing ptxas register & spill stats)"
+	@echo "  make cuda-verify-e2e Verify 16/16 zero-spill E2E engine ptxas + Zone-B live receipts & stdlib ABI"
+	@echo "  make audit-hygiene   Verify 0 bare asserts, 0 /home/ leaks, 0 weights, 0 __pycache__"
+	@echo "  make clean           Remove build artifacts and bytecode"
 
 test:
 	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -B -m unittest discover -s tests -p "test_*.py" -v
@@ -47,6 +48,9 @@ cuda-build:
 	$(NVCC) -O3 -std=c++17 -arch=$(CUDA_ARCH) --ptxas-options=-v -Xcompiler -fPIC -shared \
 		holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu \
 		-o holosphere/kernels/csrc/libsu2_holonomy_sm86.so
+
+cuda-verify-e2e:
+	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B holosphere/e2e_engine.py --verify-receipt --self-test --json
 
 audit-hygiene:
 	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B tests/test_repo_hygiene.py -v
