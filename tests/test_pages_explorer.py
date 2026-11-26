@@ -246,7 +246,7 @@ class TestPagesExplorer(unittest.TestCase):
     def test_06_pages_artifact_excludes_manifesto(self) -> None:
         workflow = WORKFLOW_PATH.read_bytes().decode("utf-8")
         self.assertIn("Stage Pages site (explorer only; MANIFESTO.md excluded)", workflow)
-        self.assertIn("cp docs/index.html docs/.nojekyll _site/", workflow)
+        self.assertIn("cp docs/index.html docs/og-image.png docs/.nojekyll _site/", workflow)
         self.assertIn("test ! -e _site/MANIFESTO.md", workflow)
         self.assertIn("path: _site", workflow)
         self.assertNotIn("path: docs", workflow)
@@ -256,14 +256,14 @@ class TestPagesExplorer(unittest.TestCase):
             tmp = Path(td)
             docs_copy = tmp / "docs"
             docs_copy.mkdir()
-            for name in ("index.html", ".nojekyll", "MANIFESTO.md"):
+            for name in ("index.html", "og-image.png", ".nojekyll", "MANIFESTO.md"):
                 src = REPO_ROOT / "docs" / name
                 if not src.is_file():
                     self.fail(f"expected repo file missing: docs/{name}")
                 shutil.copy2(src, docs_copy / name)
             staging = (
                 "rm -rf _site && mkdir _site\n"
-                "cp docs/index.html docs/.nojekyll _site/\n"
+                "cp docs/index.html docs/og-image.png docs/.nojekyll _site/\n"
                 "test ! -e _site/MANIFESTO.md\n"
             )
             proc = subprocess.run(
@@ -275,8 +275,31 @@ class TestPagesExplorer(unittest.TestCase):
             )
             self.assertEqual(proc.returncode, 0, f"staging failed: {proc.stderr}")
             site_entries = sorted(p.name for p in (tmp / "_site").iterdir())
-            self.assertEqual(site_entries, [".nojekyll", "index.html"])
+            self.assertEqual(site_entries, [".nojekyll", "index.html", "og-image.png"])
             self.assertFalse((tmp / "_site" / "MANIFESTO.md").exists())
+
+    def test_07_link_preview_tags(self) -> None:
+        html = HTML_PATH.read_bytes().decode("utf-8")
+        for tag in (
+            '<meta property="og:type" content="website" />',
+            '<meta property="og:url" content="https://moissanite-labs.github.io/holosphere/" />',
+            '<meta property="og:title" content="HoloSphere — End-to-End Inference Optimization via Frontier Mathematics" />',
+            '<meta property="og:image" content="https://moissanite-labs.github.io/holosphere/og-image.png" />',
+            '<meta property="og:image:width" content="1200" />',
+            '<meta property="og:image:height" content="630" />',
+            '<meta name="twitter:card" content="summary_large_image" />',
+            '<meta name="twitter:image" content="https://moissanite-labs.github.io/holosphere/og-image.png" />',
+        ):
+            self.assertIn(tag, html)
+        image_path = REPO_ROOT / "docs" / "og-image.png"
+        self.assertTrue(image_path.is_file())
+        self.assertLess(image_path.stat().st_size, 5_000_000)
+        # Pillow is optional here; fall back to the PNG header for dimensions.
+        header = image_path.read_bytes()[:33]
+        self.assertEqual(header[1:4], b"PNG")
+        width = int.from_bytes(header[16:20], "big")
+        height = int.from_bytes(header[20:24], "big")
+        self.assertEqual((width, height), (1200, 630))
 
 
 if __name__ == "__main__":
