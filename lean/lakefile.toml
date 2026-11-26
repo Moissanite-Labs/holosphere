@@ -1,5 +1,23 @@
 name = "HoloSphereInvariants"
-defaultTargets = ["HoloSphereInvariants"]
+defaultTargets = [
+  "HoloSphereInvariants",
+  "HoloSphereCellOpInvariants",
+  "HoloSphereConvergenceTheorems",
+  "HoloSphereSpinorBarrington",
+  "HoloSphereCrossSpineBridges",
+]
 
 [[lean_lib]]
 name = "HoloSphereInvariants"
+
+[[lean_lib]]
+name = "HoloSphereCellOpInvariants"
+
+[[lean_lib]]
+name = "HoloSphereConvergenceTheorems"
+
+[[lean_lib]]
+name = "HoloSphereSpinorBarrington"
+
+[[lean_lib]]
+name = "HoloSphereCrossSpineBridges"

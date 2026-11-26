@@ -15,10 +15,16 @@ PROJECT_NAME = "holosphere"
 REPO_SLUG = "Moissanite-Labs/holosphere"
 __version__ = "0.1.0"
 
-from holosphere.errors import HoloSphereError, require_ok
+from holosphere.errors import HoloSphereError, HoloSphereValueError, require_ok
 from holosphere.telemetry import HoloSphereStepTelemetry, HoloSphereTuningProfile, build_step_telemetry
 
 if TYPE_CHECKING:
+    from holosphere.chunk32_ops import (
+        chunk32_holosphere_layer,
+        estimate_t8192_vram_budget,
+        h256_bent4_byte_inject_s8,
+        h256_bent4_embed_torch,
+    )
     from holosphere.geometry.beltrami import Cayley2x2AutogradFn, cayley_2x2_rotate
     from holosphere.geometry.su2 import cayley_su2
     from holosphere.kernels.dispatch import (
@@ -46,7 +52,11 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "cayley_2x2_rotate": ("holosphere.geometry.beltrami", "cayley_2x2_rotate"),
     "cayley_2x2_step": ("holosphere.kernels.dispatch", "cayley_2x2_step"),
     "cayley_su2": ("holosphere.geometry.su2", "cayley_su2"),
+    "chunk32_holosphere_layer": ("holosphere.chunk32_ops", "chunk32_holosphere_layer"),
+    "estimate_t8192_vram_budget": ("holosphere.chunk32_ops", "estimate_t8192_vram_budget"),
     "fused_spherical_step": ("holosphere.kernels.dispatch", "fused_spherical_step"),
+    "h256_bent4_byte_inject_s8": ("holosphere.chunk32_ops", "h256_bent4_byte_inject_s8"),
+    "h256_bent4_embed_torch": ("holosphere.chunk32_ops", "h256_bent4_embed_torch"),
     "hopf_s3_cayley_2x2_step": ("holosphere.kernels.dispatch", "hopf_s3_cayley_2x2_step"),
     "safe_hopf_clock": ("holosphere.kernels.dispatch", "safe_hopf_clock"),
     "su2_holonomy_transport": ("holosphere.kernels.dispatch", "su2_holonomy_transport"),
@@ -73,6 +83,7 @@ __all__ = [
     "HoloSphereStepTelemetry",
     "HoloSphereTransformer",
     "HoloSphereTuningProfile",
+    "HoloSphereValueError",
     "NullModemCell",
     "PROJECT_NAME",
     "REPO_SLUG",
@@ -83,7 +94,11 @@ __all__ = [
     "cayley_2x2_rotate",
     "cayley_2x2_step",
     "cayley_su2",
+    "chunk32_holosphere_layer",
+    "estimate_t8192_vram_budget",
     "fused_spherical_step",
+    "h256_bent4_byte_inject_s8",
+    "h256_bent4_embed_torch",
     "hopf_s3_cayley_2x2_step",
     "require_ok",
     "safe_hopf_clock",

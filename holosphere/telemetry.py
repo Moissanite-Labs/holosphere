@@ -44,7 +44,11 @@ def _require_finite_float(val: Any, name: str, code: str) -> float:
         f"{name} must be numeric, got {type(val).__name__}",
         code=code,
     )
-    fval = float(val)
+    try:
+        fval = float(val)
+    except OverflowError:
+        require_ok(False, f"{name} overflowed float64", code=code)
+        return 0.0
     require_ok(math.isfinite(fval), f"{name} must be finite, got {val!r}", code=code)
     return 0.0 if fval == 0.0 else fval
 
@@ -270,8 +274,8 @@ def build_step_telemetry(
     require_ok(ms >= 0.0, f"step_ms must be >= 0.0, got {ms}", code="TEL_STEP_MS")
     bsz = _require_int_not_bool(batch_size, "batch_size", "TEL_BATCH")
     slen = _require_int_not_bool(seq_len, "seq_len", "TEL_SEQ")
-    tokens = float(bsz * slen)
-    tps = (tokens * 1000.0 / ms) if ms > 0.0 else 0.0
+    tokens = _require_finite_float(bsz * slen, "batch_size * seq_len", "TEL_TOKENS")
+    tps = _require_finite_float((tokens * 1000.0 / ms) if ms > 0.0 else 0.0, "tok_per_sec", "TEL_TPS")
     rec = HoloSphereStepTelemetry(
         step_idx=step_idx,
         seq_len=slen,

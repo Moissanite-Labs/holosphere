@@ -12,6 +12,9 @@ class HoloSphereError(ValueError):
         self.message = message
 
 
+HoloSphereValueError = HoloSphereError
+
+
 def require_ok(cond: bool, message: str, *, code: str = "HOLOSPHERE_INVARIANT") -> None:
     """Assertion-free guard safe under python3 -O."""
     if cond is not True:

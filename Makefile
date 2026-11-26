@@ -9,7 +9,7 @@ help:
 	@echo "  make test          Run CPU unit test suite (CUDA_VISIBLE_DEVICES='')"
 	@echo "  make test-3mode    Run 3-mode isolated -I parity (-I -B, -I -O -B, -I -B -W error)"
 	@echo "  make bench-cpu     Run PREREG-S114 CPU preflight parity & gradcheck benchmark"
-	@echo "  make lean-verify   Verify pure-Init Lean 4.36.0 certificate (36 theorems, 0 sorryAx)"
+	@echo "  make lean-verify   Verify pure-Init Lean 4.36.0 suite (5 modules, 51 theorems, 0 sorryAx)"
 	@echo "  make lean-test     Run 3-mode isolated -I Lean R5 verification test suite"
 	@echo "  make cuda-build    Compile bare-metal sm_86 CUDA kernel (printing ptxas register & spill stats)"
 	@echo "  make audit-hygiene Verify 0 bare asserts, 0 /home/ leaks, 0 weights, 0 __pycache__"
@@ -30,6 +30,7 @@ bench-cpu:
 
 lean-verify:
 	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B lean/verify_holosphere_lean.py --check --json
+	CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I -B lean/verify_holosphere_lean.py --verify-all-lean --json
 
 lean-test:
 	@set -e; \
