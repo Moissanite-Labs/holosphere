@@ -29,10 +29,16 @@ jobs:
         with:
           enablement: true
 
+      - name: Stage Pages site (explorer only; MANIFESTO.md excluded)
+        run: |
+          rm -rf _site && mkdir _site
+          cp docs/index.html docs/.nojekyll _site/
+          test ! -e _site/MANIFESTO.md
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: _site
 
   deploy:
     needs: build
