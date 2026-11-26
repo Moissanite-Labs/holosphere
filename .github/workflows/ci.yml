@@ -1,9 +1,12 @@
-name: HoloSphere CPU Verification (3-Mode Isolated)
+name: HoloSphere CPU & Lean 4.36.0 Verification
 
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   verify-cpu:
@@ -12,8 +15,8 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install PyTorch CPU, setuptools, & HoloSphere (editable)
@@ -21,7 +24,7 @@ jobs:
           python3 -m pip install --upgrade pip "setuptools>=77" numpy
           python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python3 -m pip install --no-build-isolation --no-deps -e .
-      - name: Run 3-mode isolated -I test parity (0 bare asserts, 0 leaks)
+      - name: Run 3-mode isolated -I test parity (0 bare asserts, 0 leaks, 128/128 vendored digests)
         env:
           CUDA_VISIBLE_DEVICES: ""
           PYTHONDONTWRITEBYTECODE: "1"
@@ -29,25 +32,64 @@ jobs:
           python3 -I -B tests/run_all.py
           python3 -I -O -B tests/run_all.py
           python3 -I -B -W error tests/run_all.py
-      - name: Run PREREG-S114 CPU preflight parity
+      - name: Run PREREG-S114 CPU preflight parity & ptxas receipt gate
         env:
           CUDA_VISIBLE_DEVICES: ""
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -I -B holosphere/benchmarks/prereg_s114_suite.py --cpu-preflight --json
-      - name: Lean 4.36.0 static R13b certificate gate & optional live 51-theorem replay
+          python3 -I -B holosphere/kernels/ptxas_check.py --verify-receipts --json
+      - name: Verify 51-theorem Lean 4.36.0 certificate envelope (static R13b + replay)
         env:
           CUDA_VISIBLE_DEVICES: ""
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           python3 -I -B lean/verify_holosphere_lean.py --check --json
-          if python3 -I -B -c "import shutil, sys; sys.exit(0 if shutil.which('lean') else 1)"; then
-            python3 -I -B lean/verify_holosphere_lean.py --verify-all-lean --json
-          else
-            echo "::notice title=Lean 4.36.0 live replay skipped::lean binary not preinstalled on ubuntu-latest; static R13b/SHA-256 --check passed. Run 'make lean-verify' locally with lean 4.36.0."
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              echo "### Lean 4.36.0 Verification" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Static R13b + SHA-256 certificate check (\`--check\`): **PASS**" >> "$GITHUB_STEP_SUMMARY"
-              echo "- Live \`lean --verify-all-lean\` (5 modules, 51 theorems): **SKIPPED** (\`lean\` not installed on runner; run \`make lean-verify\` locally with \`leanprover/lean4:v4.36.0\`)." >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
+
+  verify-lean-51:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Cache Lean 4.36.0 toolchain
+        id: cache-lean4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.tool_cache }}/lean-4.36.0
+          key: lean4-v4.36.0-${{ runner.os }}-${{ runner.arch }}-2b7ab1ed
+      - name: Install Lean 4.36.0 from SHA-256-verified official release
+        if: steps.cache-lean4.outputs.cache-hit != 'true'
+        env:
+          LEAN_TARBALL_URL: "https://github.com/leanprover/lean4/releases/download/v4.36.0/lean-4.36.0-linux.tar.zst"
+          LEAN_TARBALL_SHA256: "2b7ab1ed8b92d2e6abfaf41344823b510064dbc9c0260cac73eb496ab2dea6eb"
+          LEAN_DIR: ${{ runner.tool_cache }}/lean-4.36.0
+          TMP_ARCHIVE: ${{ runner.temp }}/lean-4.36.0-linux.tar.zst
+        run: |
+          set -euo pipefail
+          [ "$(uname -m)" = "x86_64" ]
+          curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-delay 5 \
+            -o "$TMP_ARCHIVE" "$LEAN_TARBALL_URL"
+          printf '%s  %s\n' "$LEAN_TARBALL_SHA256" "$TMP_ARCHIVE" | sha256sum -c -
+          mkdir -p "$LEAN_DIR"
+          tar --zstd -xf "$TMP_ARCHIVE" --strip-components=1 -C "$LEAN_DIR"
+          rm -f "$TMP_ARCHIVE"
+      - name: Run unconditional live 51-theorem Lean 4.36.0 replay & 3-mode R5 suite
+        env:
+          CUDA_VISIBLE_DEVICES: ""
+          PYTHONDONTWRITEBYTECODE: "1"
+          LEAN_DIR: ${{ runner.tool_cache }}/lean-4.36.0
+          LEAN_BIN_SHA256: "db7f559d05795e7af52e42bc966c90240a39dcb9712161c54c97afa546e20c00"
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "$LEAN_BIN_SHA256" "$LEAN_DIR/bin/lean" | sha256sum -c -
+          export PATH="$LEAN_DIR/bin:$PATH"
+          lean --version
+          lean --version | grep -Fq "version 4.36.0,"
+          python3 -I -B lean/verify_holosphere_lean.py --check --json
+          python3 -I -B lean/verify_holosphere_lean.py --verify-all-lean --json
+          for flags in "-I -B" "-I -O -B" "-I -B -W error"; do
+            python3 $flags lean/test_holosphere_lean_r5.py
+          done

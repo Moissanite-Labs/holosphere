@@ -78,6 +78,70 @@ LEAN_THEOREM_NAMES: tuple[str, ...] = tuple(
     f"HoloSphereInvariants.{short}" for short in LEAN_THEOREM_SHORT_NAMES
 )
 
+# Companion pure-Init Lean 4.36.0 modules (#37-#50 -> 51/51 total public theorems across 5 modules)
+LEAN_COMPANION_MODULES: tuple[dict[str, Any], ...] = (
+    {
+        "filename": "HoloSphereCellOpInvariants.lean",
+        "namespace": "HoloSphereCellOpInvariants",
+        "sha256": "78c8e3bae5bd16569c539ceadc4b0f8a82fc3ee762625579687f8cddc914dfc4",
+        "theorems": (
+            "p1_blockh4_involutory_and_int8_bounds",
+            "p2_cayley_unit_ball_so3_involution_and_even",
+            "p3_cayley_exact_inverse_reversibility",
+            "p4_hadamard256_byte_orthogonality",
+            "p4b_bent_phase_preserves_orthogonality",
+        ),
+    },
+    {
+        "filename": "HoloSphereConvergenceTheorems.lean",
+        "namespace": "HoloSphereConvergenceTheorems",
+        "sha256": "6d0f7875e4a98a2e6f7292a7a5538f8daeb1ad246cc8295606ee03fbe7840765",
+        "theorems": (
+            "p41_woodbury_zero_inv_chunked_adjoint",
+            "p42_relational_macro_holonomy_left_gauge_invariance",
+            "p43_a16_hamming16_11_4_inline_secded",
+            "p44_dyadic_23bit_gumbel_strict_unit_interval",
+            "p45_su2_nonabelian_3line_adjoint_identity",
+        ),
+    },
+    {
+        "filename": "HoloSphereSpinorBarrington.lean",
+        "namespace": "HoloSphereSpinorBarrington",
+        "sha256": "972c14c36e991ab4b4c6a342bb24c499e8d7deb68749ba175d8af6893500e37e",
+        "theorems": (
+            "p46_spinor_barrington_c10_exact_closure",
+            "p47_su2_commutator_trace_and_order5_obstruction",
+            "p48_spinor_barrington_acute_cayley_ball",
+        ),
+    },
+    {
+        "filename": "HoloSphereCrossSpineBridges.lean",
+        "namespace": "HoloSphereCrossSpineBridges",
+        "sha256": "2381dd26ca5c8411e5e8b427a820a50e277938b5c3e93f59d9e8143a8ab5b040",
+        "theorems": (
+            "p49_bridge11_bent4_u4_symplectic_and_flat_wht",
+            "p50_bridge12_nonscalar_krein_holonomy_order_split",
+        ),
+    },
+)
+
+LEAN_ALL_MODULES: tuple[dict[str, Any], ...] = (
+    {
+        "filename": LEAN_FILE_NAME,
+        "namespace": "HoloSphereInvariants",
+        "sha256": LEAN_SOURCE_SHA256,
+        "theorems": LEAN_THEOREM_SHORT_NAMES,
+    },
+    *LEAN_COMPANION_MODULES,
+)
+LEAN_TOTAL_MODULES = len(LEAN_ALL_MODULES)
+LEAN_ALL_THEOREM_NAMES: tuple[str, ...] = tuple(
+    f"{m['namespace']}.{short}"
+    for m in LEAN_ALL_MODULES
+    for short in m["theorems"]
+)
+LEAN_ALL_NAMED_THEOREM_COUNT = len(LEAN_ALL_THEOREM_NAMES)
+
 QuatQ = tuple[Fraction, Fraction, Fraction, Fraction]
 
 
@@ -583,13 +647,24 @@ def _build_pillar5() -> dict[str, Any]:
 
 
 def build_payload() -> dict[str, Any]:
+    suite_modules = [
+        {
+            "filename": require_exact_str(m["filename"], "mod_file"),
+            "module": require_exact_str(m["namespace"], "mod_ns"),
+            "named_theorem_count": require_exact_int(len(m["theorems"]), "mod_cnt"),
+            "sha256": require_exact_str(m["sha256"], "mod_sha"),
+            "theorem_names": [f"{m['namespace']}.{short}" for short in m["theorems"]],
+        }
+        for m in LEAN_ALL_MODULES
+    ]
     return {
         "novelty_grade": "N1",
         "n2_claims": 0,
         "scope_note": (
-            "Pure-Init Lean 4.36.0 machine-checked algebraic invariants and exact rational "
-            "witnesses for Project HoloSphere across SU(2) holonomy scan, covariant QKV "
-            "transport, SFU-free Cayley Safe-Hopf, Beltrami/Bingham/Darboux, and Weft safety."
+            "Pure-Init Lean 4.36.0 5-module, 51-theorem machine-checked algebraic invariants "
+            "and exact rational witnesses for Project HoloSphere across SU(2) holonomy scan, "
+            "covariant QKV transport, SFU-free Cayley Safe-Hopf, Beltrami/Bingham/Darboux, "
+            "Weft safety, Chunk32/SECDED, Spinor-Barrington 2I, and Cross-Spine bridges."
         ),
         "lean_companion": {
             "lean_file": require_exact_str(LEAN_FILE_NAME, "lean_file"),
@@ -599,6 +674,16 @@ def build_payload() -> dict[str, Any]:
             "helper_theorem_count": require_exact_int(LEAN_HELPER_THEOREM_COUNT, "helper_cnt"),
             "total_theorem_declarations": require_exact_int(LEAN_TOTAL_THEOREM_DECLS, "total_cnt"),
             "theorem_names": list(LEAN_THEOREM_NAMES),
+        },
+        "lean_suite": {
+            "lean_toolchain": require_exact_str(LEAN_TOOLCHAIN, "suite_toolchain"),
+            "module_count": require_exact_int(LEAN_TOTAL_MODULES, "suite_mod_cnt"),
+            "total_named_theorems": require_exact_int(LEAN_ALL_NAMED_THEOREM_COUNT, "suite_thm_cnt"),
+            "allowed_axioms": ["propext", "Quot.sound"],
+            "zero_classical_choice": True,
+            "zero_sorry_ax": True,
+            "modules": suite_modules,
+            "all_theorem_names": list(LEAN_ALL_THEOREM_NAMES),
         },
         "pillar1_su2_scan_and_suffix_adjoint": _build_pillar1(),
         "pillar2_covariant_qkv_transport": _build_pillar2(),
@@ -635,7 +720,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     require_ok(args == [], "UNKNOWN_ORACLE_ARG", f"unrecognized args: {args}")
     summary = {
         "track_id": TRACK_ID,
-        "lean_theorems": LEAN_NAMED_THEOREM_COUNT,
+        "lean_modules": LEAN_TOTAL_MODULES,
+        "lean_theorems": LEAN_ALL_NAMED_THEOREM_COUNT,
+        "core_theorems": LEAN_NAMED_THEOREM_COUNT,
         "payload_sha256": cert["payload_sha256"],
         "certificate_sha256": cert["certificate_sha256"],
     }

@@ -205,24 +205,35 @@ class TestTelemetryCayleyAndVarDepth(unittest.TestCase):
             )
         self.assertEqual(cm_ov_tel.exception.code, "TEL_STEP_MS")
 
-        # Cross-repo 128/128 profile_sha256() parity vs sibling Moissanite-Labs/silisense when present locally
+        # Always-on 128/128 profile_sha256() parity vs vendored Moissanite-Labs/silisense fixture (0 skips in CI!)
+        cases = [
+            (b, bt, mbs, cd, rl)
+            for b in ("auto", "cuda_sm86", "triton", "torch_cpu")
+            for bt in (32, 64, 128, 256)
+            for mbs in (None, 4)
+            for cd in (0, 0.0, -0.0, 2.5)
+            for rl in (None,)
+        ]
+        self.assertEqual(len(cases), 128)
+        local_hashes = [
+            HoloSphereTuningProfile(
+                backend=b, block_t=bt, microbatch_size=mbs, inter_step_cooldown_ms=cd, r_loops_override=rl
+            ).profile_sha256()
+            for b, bt, mbs, cd, rl in cases
+        ]
+        fixture_path = REPO_ROOT / "tests" / "fixtures" / "silisense_128_profile_digests.json"
+        self.assertTrue(fixture_path.is_file(), f"Missing vendored fixture {fixture_path}")
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+        self.assertEqual(fixture["schema"], "holosphere.silisense_128_profile_digests.v1")
+        self.assertEqual(fixture["count"], 128)
+        self.assertEqual(fixture["digests"], local_hashes)
+        import hashlib
+        agg_sha = hashlib.sha256(json.dumps(local_hashes, separators=(",", ":")).encode("ascii")).hexdigest()
+        self.assertEqual(fixture["aggregate_sha256"], agg_sha)
+
+        # Optional live cross-repo parity check when sibling Moissanite-Labs/silisense is also checked out locally
         silisense_root = REPO_ROOT.parent / "silisense"
         if silisense_root.is_dir():
-            cases = [
-                (b, bt, mbs, cd, rl)
-                for b in ("auto", "cuda_sm86", "triton", "torch_cpu")
-                for bt in (32, 64, 128, 256)
-                for mbs in (None, 4)
-                for cd in (0, 0.0, -0.0, 2.5)
-                for rl in (None,)
-            ]
-            self.assertEqual(len(cases), 128)
-            local_hashes = [
-                HoloSphereTuningProfile(
-                    backend=b, block_t=bt, microbatch_size=mbs, inter_step_cooldown_ms=cd, r_loops_override=rl
-                ).profile_sha256()
-                for b, bt, mbs, cd, rl in cases
-            ]
             sili_probe = (
                 f"import json, sys; sys.path.insert(0, {str(silisense_root)!r}); "
                 "from silisense.holosphere_bridge import HoloSphereTuningProfile; "

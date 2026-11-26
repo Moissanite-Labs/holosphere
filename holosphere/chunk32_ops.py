@@ -379,12 +379,12 @@ def verify_s117_ptxas_receipt(csrc_dir: Path = DEFAULT_CSRC_DIR) -> Dict[str, An
 
 def verify_v3_frontier_ptxas_receipt(csrc_dir: Path = DEFAULT_CSRC_DIR) -> Dict[str, Any]:
     """Fail-closed verification of ``ptxas_v3_frontier_zero_spill_receipt.json`` against ``holosphere_v3_frontier_sm86.cu``."""
-    cu_sha, _rec, kernels, sass = _verify_ptxas_receipt_core(
+    cu_sha, rec, kernels, sass = _verify_ptxas_receipt_core(
         csrc_dir=csrc_dir,
         cu_filename=V3_CU_FILENAME,
         rec_filename=V3_PTXAS_FILENAME,
         expected_symbols=EXPECTED_V3_KERNEL_SYMBOLS,
-        require_zero_spill_key=False,
+        require_zero_spill_key=True,
     )
     hmma = sass.get("HMMA_16816")
     idp4a = sass.get("IDP4A")
@@ -396,7 +396,7 @@ def verify_v3_frontier_ptxas_receipt(csrc_dir: Path = DEFAULT_CSRC_DIR) -> Dict[
     )
     return {
         "total_kernels": len(kernels),
-        "zero_spill_kernels": len(kernels),
+        "zero_spill_kernels": rec["zero_spill_kernels"],
         "cu_sha256": cu_sha,
         "sass_HMMA_16816": hmma,
         "sass_IDP4A": idp4a,

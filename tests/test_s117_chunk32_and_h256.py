@@ -206,6 +206,7 @@ class TestS117Chunk32AndH256(unittest.TestCase):
         for code, mut in (
             ("PTXAS_CU_SHA", lambda r: r.__setitem__("cu_sha256", "0" * 64)),
             ("PTXAS_NONZERO", lambda r: r.__setitem__("nonzero_spill_kernels", 1)),
+            ("PTXAS_ZERO_SPILL_KEY", lambda r: r.pop("zero_spill_kernels")),
             ("PTXAS_SYMBOLS", lambda r: r.__setitem__("kernels", [copy.deepcopy(r["kernels"][0])] * 2)),
             ("SASS_V3_OPS", lambda r: r["sass_instruction_counts"].__setitem__("HMMA_16816", 27)),
             ("SASS_V3_OPS", lambda r: r["sass_instruction_counts"].__setitem__("IDP4A", 23)),
@@ -324,6 +325,207 @@ class TestS117Chunk32AndH256(unittest.TestCase):
             with self.assertRaises(HoloSphereError) as ctx_bp:
                 c32.chunk32_holosphere_layer(x_ok, w_ok, W_ok, S_ok, U_ok, chunk_size=2, **bad_pkw)  # type: ignore[arg-type]
             self.assertEqual(ctx_bp.exception.code, "BAD_PARAM")
+
+    def test_04_ptxas_check_40_kernel_parser_receipts_and_cli(self) -> None:
+        import io
+        import os
+        from contextlib import redirect_stderr, redirect_stdout
+        from holosphere.kernels import ptxas_check as pc
+
+        # 1. parse_ptxas_verbose positive + negative controls
+        ok_log = (
+            "ptxas info    : Compiling entry function 'k1' for 'sm_86'\n"
+            "ptxas info    : Function properties for k1\n"
+            "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            "ptxas info    : Used 48 registers, 400 bytes cmem[0]\n"
+            "ptxas info    : Compiling entry function 'k2' for 'sm_86'\n"
+            "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            "ptxas info    : Used 96 registers, 400 bytes cmem[0]\n"
+        )
+        parsed = pc.parse_ptxas_verbose(ok_log, expected_kernels=2)
+        self.assertEqual(parsed["total_kernels"], 2)
+        self.assertEqual(parsed["zero_spill_kernels"], 2)
+        self.assertEqual(parsed["max_registers"], 96)
+
+        with self.assertRaises(HoloSphereError) as cm_t:
+            pc.parse_ptxas_verbose(123)  # type: ignore[arg-type]
+        self.assertEqual(cm_t.exception.code, "PTXAS_BAD_LOG")
+        with self.assertRaises(HoloSphereError) as cm_nk:
+            pc.parse_ptxas_verbose("no kernels here\n")
+        self.assertEqual(cm_nk.exception.code, "PTXAS_NO_KERNELS")
+        with self.assertRaises(HoloSphereError) as cm_cnt:
+            pc.parse_ptxas_verbose(ok_log, expected_kernels=3)
+        self.assertEqual(cm_cnt.exception.code, "PTXAS_COUNT_MISMATCH")
+        with self.assertRaises(HoloSphereError) as cm_inc:
+            pc.parse_ptxas_verbose("ptxas info : Compiling entry function 'k1' for 'sm_86'\n")
+        self.assertEqual(cm_inc.exception.code, "PTXAS_INCOMPLETE_STATS")
+        with self.assertRaises(HoloSphereError) as cm_inc2:
+            pc.parse_ptxas_verbose(
+                "ptxas info : Compiling entry function 'k1' for 'sm_86'\n"
+                "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            )
+        self.assertEqual(cm_inc2.exception.code, "PTXAS_INCOMPLETE_STATS")
+        for bad_sp in (
+            "    16 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n",
+            "    0 bytes stack frame, 16 bytes spill stores, 0 bytes spill loads\n",
+            "    0 bytes stack frame, 0 bytes spill stores, 16 bytes spill loads\n",
+        ):
+            bad_log = (
+                "ptxas info : Compiling entry function 'k1' for 'sm_86'\n"
+                + bad_sp
+                + "ptxas info : Used 48 registers\n"
+            )
+            with self.assertRaises(HoloSphereError) as cm_sp:
+                pc.parse_ptxas_verbose(bad_log, expected_kernels=1)
+            self.assertEqual(cm_sp.exception.code, "PTXAS_SPILL_DETECTED")
+            # A1: non-zero spill BEFORE first entry header must fail closed immediately
+            with self.assertRaises(HoloSphereError) as cm_pre:
+                pc.parse_ptxas_verbose(bad_sp + ok_log)
+            self.assertEqual(cm_pre.exception.code, "PTXAS_SPILL_DETECTED")
+            # A1: non-zero spill overwritten by later 0/0/0 line on same kernel must fail closed
+            overwritten = (
+                "ptxas info : Compiling entry function 'k1' for 'sm_86'\n"
+                + bad_sp
+                + "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+                + "ptxas info : Used 48 registers\n"
+            )
+            with self.assertRaises(HoloSphereError) as cm_ov:
+                pc.parse_ptxas_verbose(overwritten, expected_kernels=1)
+            self.assertEqual(cm_ov.exception.code, "PTXAS_SPILL_DETECTED")
+
+        # A1: orphan 0/0/0 spill or register line before first entry header -> PTXAS_ORPHAN_STATS
+        with self.assertRaises(HoloSphereError) as cm_osp:
+            pc.parse_ptxas_verbose("    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n" + ok_log)
+        self.assertEqual(cm_osp.exception.code, "PTXAS_ORPHAN_STATS")
+        with self.assertRaises(HoloSphereError) as cm_org:
+            pc.parse_ptxas_verbose("ptxas info : Used 32 registers\n" + ok_log)
+        self.assertEqual(cm_org.exception.code, "PTXAS_ORPHAN_STATS")
+
+        # A1: duplicate spill or register stats on same kernel -> PTXAS_DUPLICATE_STATS
+        dup_sp = (
+            "ptxas info : Compiling entry function 'k1' for 'sm_86'\n"
+            "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            "ptxas info : Used 48 registers\n"
+        )
+        with self.assertRaises(HoloSphereError) as cm_dsp:
+            pc.parse_ptxas_verbose(dup_sp, expected_kernels=1)
+        self.assertEqual(cm_dsp.exception.code, "PTXAS_DUPLICATE_STATS")
+        dup_rg = (
+            "ptxas info : Compiling entry function 'k1' for 'sm_86'\n"
+            "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads\n"
+            "ptxas info : Used 48 registers\n"
+            "ptxas info : Used 48 registers\n"
+        )
+        with self.assertRaises(HoloSphereError) as cm_drg:
+            pc.parse_ptxas_verbose(dup_rg, expected_kernels=1)
+        self.assertEqual(cm_drg.exception.code, "PTXAS_DUPLICATE_STATS")
+
+        # 2. verify_all_40_receipts positive & missing-core control
+        rec40 = pc.verify_all_40_receipts()
+        self.assertEqual(rec40["total_kernels_catalogued"], 40)
+        self.assertEqual(rec40["receipt_verified_zero_spill_kernels"], 13)
+        self.assertEqual(rec40["v3_frontier_receipt"]["zero_spill_kernels"], 2)
+
+        td = Path(tempfile.mkdtemp(prefix="holo_ptxas40_"))
+        self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
+        with self.assertRaises(HoloSphereError) as cm_miss:
+            pc.verify_all_40_receipts(td)
+        self.assertEqual(cm_miss.exception.code, "PTXAS_NO_CU")
+
+        # 3. compile_all_40_kernels negative & mocked-nvcc positive controls (CPU-safe, 0 GPU)
+        with self.assertRaises(HoloSphereError) as cm_ba:
+            pc.compile_all_40_kernels(nvcc="  ")
+        self.assertEqual(cm_ba.exception.code, "NVCC_BAD_ARG")
+        with self.assertRaises(HoloSphereError) as cm_ar:
+            pc.compile_all_40_kernels(arch="compute_86")
+        self.assertEqual(cm_ar.exception.code, "NVCC_BAD_ARCH")
+        with self.assertRaises(HoloSphereError) as cm_un:
+            pc.compile_all_40_kernels(nvcc="/nonexistent/nvcc_holo_test")
+        self.assertEqual(cm_un.exception.code, "NVCC_UNAVAILABLE")
+
+        def _fake_nvcc(name: str, body: str) -> str:
+            p = td / name
+            p.write_text("#!/bin/sh\n" + body + "\n", encoding="utf-8")
+            os.chmod(p, 0o700)
+            return str(p)
+
+        nv_ver_fail = _fake_nvcc("nv_vf.sh", "exit 1")
+        with self.assertRaises(HoloSphereError) as cm_vf:
+            pc.compile_all_40_kernels(nvcc=nv_ver_fail)
+        self.assertEqual(cm_vf.exception.code, "NVCC_VERSION_FAIL")
+
+        nv_comp_fail = _fake_nvcc(
+            "nv_cf.sh",
+            'if [ "$1" = "--version" ]; then echo "Build mock"; exit 0; fi\necho "err" >&2\nexit 1',
+        )
+        with self.assertRaises(HoloSphereError) as cm_cf:
+            pc.compile_all_40_kernels(nvcc=nv_comp_fail)
+        self.assertEqual(cm_cf.exception.code, "NVCC_COMPILE_FAIL")
+
+        # Missing .cu inside custom csrc_dir
+        nv_ok_stub = _fake_nvcc(
+            "nv_ok.sh",
+            'if [ "$1" = "--version" ]; then echo "Build cuda_mock"; exit 0; fi\n'
+            'case "$*" in\n'
+            '  *su2_holonomy_scan_sm86.cu*) N=27 ;;\n'
+            '  *holosphere_h256_chunk32_sm86.cu*) N=11 ;;\n'
+            '  *holosphere_v3_frontier_sm86.cu*) N=2 ;;\n'
+            '  *) N=0 ;;\n'
+            'esac\n'
+            'i=1\n'
+            'while [ "$i" -le "$N" ]; do\n'
+            '  echo "ptxas info : Compiling entry function \'k$i\' for \'sm_86\'" >&2\n'
+            '  echo "    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads" >&2\n'
+            '  echo "ptxas info : Used 48 registers" >&2\n'
+            '  i=$((i + 1))\n'
+            'done\n'
+            'exit 0',
+        )
+        with self.assertRaises(HoloSphereError) as cm_mc:
+            pc.compile_all_40_kernels(csrc_dir=td, nvcc=nv_ok_stub)
+        self.assertEqual(cm_mc.exception.code, "PTXAS_NO_CU")
+
+        # Mocked subprocess error during compile
+        orig_run = pc.subprocess.run
+        calls = {"n": 0}
+        try:
+            def _boom_on_second(cmd, **kw):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    return orig_run(cmd, **kw)
+                raise OSError("compile_boom")
+            pc.subprocess.run = _boom_on_second
+            with self.assertRaises(HoloSphereError) as cm_ce:
+                pc.compile_all_40_kernels(nvcc=nv_ok_stub)
+            self.assertEqual(cm_ce.exception.code, "NVCC_COMPILE_ERROR")
+        finally:
+            pc.subprocess.run = orig_run
+
+        # Mocked full 40/40 compile pass
+        comp40 = pc.compile_all_40_kernels(nvcc=nv_ok_stub)
+        self.assertEqual(comp40["total_kernels"], 40)
+        self.assertEqual(comp40["zero_spill_kernels"], 40)
+
+        # 4. CLI flags positive & fail-closed
+        out_b, err_b = io.StringIO(), io.StringIO()
+        with redirect_stdout(out_b), redirect_stderr(err_b):
+            rc = pc.main(["--verify-receipts", "--compile", "--nvcc", nv_ok_stub, "--arch", "sm_86", "--json"])
+        self.assertEqual(rc, 0, err_b.getvalue())
+        cli_obj = json.loads(out_b.getvalue())
+        self.assertEqual(cli_obj["compile"]["zero_spill_kernels"], 40)
+        self.assertEqual(cli_obj["receipts"]["total_kernels_catalogued"], 40)
+
+        out_def, err_def = io.StringIO(), io.StringIO()
+        with redirect_stdout(out_def), redirect_stderr(err_def):
+            self.assertEqual(pc.main([]), 0)
+        self.assertIn("OK ptxas_check", out_def.getvalue())
+
+        for bad_argv in (["--nvcc"], ["--arch"], ["--unknown-flag"]):
+            err_bad = io.StringIO()
+            with redirect_stderr(err_bad):
+                self.assertEqual(pc.main(bad_argv), 2)
+            self.assertIn("CLI_BAD_ARG", err_bad.getvalue())
 
 
 if __name__ == "__main__":

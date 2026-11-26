@@ -308,6 +308,7 @@
     "STL": 0
   },
   "schema": "holosphere.track_s117.ptxas_zero_spill_receipt.v3",
+  "toolchain_note": "Recorded with nvcc 13.4.92 (Build cuda_13.4.r13.4/compiler.38855100_0, sm_86); register counts may vary by +/-1 on other CUDA 13.x toolchains (e.g., 13.0/13.2) while preserving 0 B stack/spill.",
   "total_kernels": 11,
   "zero_spill_kernels": 11
 }
