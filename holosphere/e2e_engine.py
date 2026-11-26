@@ -53,6 +53,13 @@ ZONE_B_RECEIPT_FILENAME = "mlos_zone_b_s117_e2e_engine.json"
 TRAIN_LIVE_FILENAME = "s117_e2e_training_live_results.json"
 INFER_LIVE_FILENAME = "s117_e2e_inference_live_results.json"
 
+LIVE_SOURCE_BINDING_SCHEMA = "holosphere.track_s117.live_source_binding.v1"
+LIVE_CU_REL_BY_UNIT: Dict[str, str] = {
+    "training_ext": "holosphere/kernels/csrc/" + EXT_CU_FILENAME,
+    "inference_runtime": "holosphere/kernels/csrc/" + INFER_CU_FILENAME,
+}
+ENERGY_STATUS_UNCONTROLLED_PROVISIONAL = "uncontrolled_provisional"
+
 EXPECTED_V3_EXT_SYMBOLS: frozenset[str] = frozenset(
     {
         "_ZN17holosphere_v3_ext35holosphere_v3_chunk32_bwd_wmma_sm86EPKfS1_S1_S1_S1_S1_PfS2_S2_S2_ffffiiiii",
@@ -359,8 +366,83 @@ def verify_e2e_ptxas_receipt(csrc_dir: Any = DEFAULT_CSRC_DIR) -> Dict[str, Any]
     }
 
 
+def live_results_sha256(obj: dict) -> str:
+    """Canonical SHA-256 hex of a live-results JSON object, excluding the ``source_binding`` key."""
+    require_ok(isinstance(obj, dict), "live-results object must be a JSON object", code="E2E_LIVE_RESULTS_SHA")
+    body = {k: v for k, v in obj.items() if k != "source_binding"}
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+    ).hexdigest()
+
+
+def _verify_live_source_binding(
+    csrc_path: Path,
+    ptxas_units: Any,
+    live_obj: Dict[str, Any],
+    *,
+    ptxas_unit: str,
+    live_filename: str,
+) -> Dict[str, Any]:
+    """Fail-closed source-binding, committed-.cu hash, results self-hash, and energy-status gate."""
+    sb = live_obj.get("source_binding")
+    require_ok(
+        isinstance(sb, dict),
+        f"{live_filename}: source_binding missing or not a JSON object",
+        code="E2E_LIVE_SRC_BINDING",
+    )
+    require_ok(
+        sb.get("binding_schema") == LIVE_SOURCE_BINDING_SCHEMA
+        and sb.get("ptxas_unit") == ptxas_unit
+        and sb.get("cu_rel") == LIVE_CU_REL_BY_UNIT[ptxas_unit]
+        and _is_hex64(sb.get("cu_sha256"))
+        and _is_hex64(sb.get("bench_source_cu_sha256"))
+        and _is_hex64(sb.get("results_sha256"))
+        and isinstance(sb.get("bench_ran_on_bound_source"), bool)
+        and not (sb["bench_ran_on_bound_source"] is False and sb["bench_source_cu_sha256"] == sb["cu_sha256"]),
+        f"{live_filename}: source_binding schema/ptxas_unit/cu_rel/sha-fields/bench-flag invalid",
+        code="E2E_LIVE_SRC_BINDING",
+    )
+    unit = ptxas_units.get(ptxas_unit) if isinstance(ptxas_units, dict) else None
+    cu_path = csrc_path / Path(sb["cu_rel"]).name
+    require_ok(
+        cu_path.is_file()
+        and isinstance(unit, dict)
+        and _is_hex64(unit.get("cu_sha256"))
+        and _is_hex64(unit.get("zone_b_pre_refactor_cu_sha256")),
+        f"{live_filename}: bound .cu source missing or ptxas receipt unit malformed",
+        code="E2E_LIVE_SRC_SHA",
+    )
+    actual_cu_sha = hashlib.sha256(cu_path.read_bytes()).hexdigest()
+    require_ok(
+        actual_cu_sha == sb["cu_sha256"]
+        and sb["cu_sha256"] == unit["cu_sha256"]
+        and sb["bench_source_cu_sha256"] == unit["zone_b_pre_refactor_cu_sha256"],
+        f"{live_filename}: .cu file SHA-256 mismatch vs source_binding / ptxas receipt",
+        code="E2E_LIVE_SRC_SHA",
+    )
+    require_ok(
+        live_results_sha256(live_obj) == sb["results_sha256"],
+        f"{live_filename}: live results tampered (results_sha256 mismatch)",
+        code="E2E_LIVE_RESULTS_SHA",
+    )
+    em = live_obj.get("energy_measurement")
+    require_ok(
+        isinstance(em, dict) and em.get("status") == ENERGY_STATUS_UNCONTROLLED_PROVISIONAL,
+        f"{live_filename}: energy_measurement.status must be 'uncontrolled_provisional'",
+        code="E2E_ENERGY_STATUS",
+    )
+    return sb
+
+
 def verify_e2e_live_receipts(csrc_dir: Any = DEFAULT_CSRC_DIR) -> Dict[str, Any]:
-    """Fail-closed verification of the stamped Zone-B RTX 3080 training & inference live receipts."""
+    """Fail-closed verification of the stamped Zone-B RTX 3080 training & inference live receipts.
+
+    The Zone-B envelope check verifies only the envelope's integrity (canonical self-hash,
+    determinism pins, exit code, and GPU throttle flags); it is NOT a controlled-energy
+    certificate. Each live JSON is additionally bound to its committed ``.cu`` source via
+    ``source_binding``, self-hashed via ``results_sha256``, and required to declare its
+    energy/power figures ``uncontrolled_provisional``.
+    """
     csrc_path = _coerce_path(csrc_dir, "E2E_MISSING_ZONE_B")
     zb = _load_json_object_strict(
         csrc_path / ZONE_B_RECEIPT_FILENAME,
@@ -424,6 +506,9 @@ def verify_e2e_live_receipts(csrc_dir: Any = DEFAULT_CSRC_DIR) -> Dict[str, Any]
         missing_code="E2E_MISSING_TRAIN_LIVE",
         bad_code="E2E_BAD_TRAIN_JSON",
     )
+    tr_sb = _verify_live_source_binding(
+        csrc_path, ptxas_rec.get("units"), tr, ptxas_unit="training_ext", live_filename=TRAIN_LIVE_FILENAME
+    )
     require_ok(
         tr.get("schema") == "holosphere.track_s117.e2e_training_engine_live.v1",
         "Unexpected training live receipt schema",
@@ -467,6 +552,9 @@ def verify_e2e_live_receipts(csrc_dir: Any = DEFAULT_CSRC_DIR) -> Dict[str, Any]
         csrc_path / INFER_LIVE_FILENAME,
         missing_code="E2E_MISSING_INFER_LIVE",
         bad_code="E2E_BAD_INFER_JSON",
+    )
+    inf_sb = _verify_live_source_binding(
+        csrc_path, ptxas_rec.get("units"), inf, ptxas_unit="inference_runtime", live_filename=INFER_LIVE_FILENAME
     )
     require_ok(
         inf.get("schema") == "holosphere.track_s117.e2e_inference_live.v1",
@@ -531,6 +619,16 @@ def verify_e2e_live_receipts(csrc_dir: Any = DEFAULT_CSRC_DIR) -> Dict[str, Any]
         "infer_max_logit_abs_err": float(par["max_logit_abs_err_vs_pytorch_fp32"]),
         "sec16_bit_exact": True,
         "ded1_weft_rollback_bit_exact": True,
+        "train_live_cu_sha256": tr_sb["cu_sha256"],
+        "infer_live_cu_sha256": inf_sb["cu_sha256"],
+        "live_bench_ran_on_bound_source": bool(
+            tr_sb["bench_ran_on_bound_source"] and inf_sb["bench_ran_on_bound_source"]
+        ),
+        "live_results_sha256": {
+            "training": tr_sb["results_sha256"],
+            "inference": inf_sb["results_sha256"],
+        },
+        "energy_status": ENERGY_STATUS_UNCONTROLLED_PROVISIONAL,
     }
 
 

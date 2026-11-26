@@ -63,6 +63,10 @@
     "seed": 2026
   },
   "device": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "energy_measurement": {
+    "note": "mJ/tok, W and energy-ratio values come from RTX 3080 laptop NVML readings in a session that was not controlled (machine moved, in use, or unplugged). They are provisional and are not controlled results.",
+    "status": "uncontrolled_provisional"
+  },
   "live_ded1_weft_pi16_rollback_recovery": {
     "ded_injected_and_caught_at_step": 40,
     "live_sys_canary_ded_count": 1,
@@ -87,5 +91,15 @@
     "exact_token_match_32_of_32": true,
     "max_logit_abs_err_vs_pytorch_fp32": 1.431e-06
   },
-  "schema": "holosphere.track_s117.e2e_inference_live.v1"
+  "schema": "holosphere.track_s117.e2e_inference_live.v1",
+  "source_binding": {
+    "bench_ran_on_bound_source": false,
+    "bench_source_cu_sha256": "040a5e20b5af66aed3d591c11bb0b98e3a5ed7486c2a326788e2b586bb7ee76e",
+    "bench_source_note": "Live figures were measured on the pre-refactor source (bench_source_cu_sha256), which is not in this tree. They have not been re-run on the bound cu_sha256 source.",
+    "binding_schema": "holosphere.track_s117.live_source_binding.v1",
+    "cu_rel": "holosphere/kernels/csrc/holosphere_v3_infer_sm86.cu",
+    "cu_sha256": "dd79c5d220e533e1d84cf789710fc2adb975f9357cc484255b9abc10d35b057d",
+    "ptxas_unit": "inference_runtime",
+    "results_sha256": "c3be87a1a703e8a41e64abdd5cf65f8c84e6a1102cbf5f6ca15fb6179d0e8cf8"
+  }
 }

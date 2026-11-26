@@ -166,6 +166,8 @@ class TestHoloSphereV3E2EEngineR5(unittest.TestCase):
 
         td = Path(tempfile.mkdtemp(prefix="holo_live_r5_"))
         self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
+        shutil.copy2(e2e.DEFAULT_CSRC_DIR / e2e.EXT_CU_FILENAME, td / e2e.EXT_CU_FILENAME)
+        shutil.copy2(e2e.DEFAULT_CSRC_DIR / e2e.INFER_CU_FILENAME, td / e2e.INFER_CU_FILENAME)
         with self.assertRaises(HoloSphereError) as ctx_mzb:
             e2e.verify_e2e_live_receipts(td)
         self.assertEqual(ctx_mzb.exception.code, "E2E_MISSING_ZONE_B")
@@ -238,6 +240,11 @@ class TestHoloSphereV3E2EEngineR5(unittest.TestCase):
                 copy.deepcopy(inf_src),
             )
             mut({"zb": zb_b, "ptx": ptx_b, "tr": tr_b, "inf": inf_b}[target])
+            if target in ("tr", "inf"):
+                # Re-sign the live results self-hash so the source-binding/results gates pass
+                # and the tamper still reaches its original content gate.
+                live_b = {"tr": tr_b, "inf": inf_b}[target]
+                live_b["source_binding"]["results_sha256"] = e2e.live_results_sha256(live_b)
             if resign:
                 new_sha = _resign_zb(zb_b)
                 ptx_b["zone_b_receipt_sha256"] = new_sha
@@ -245,6 +252,146 @@ class TestHoloSphereV3E2EEngineR5(unittest.TestCase):
             with self.assertRaises(HoloSphereError) as ctx_l:
                 e2e.verify_e2e_live_receipts(td)
             self.assertEqual(ctx_l.exception.code, code)
+
+    def test_05_live_receipts_bound_to_source_and_tamper_controls(self) -> None:
+        live = e2e.verify_e2e_live_receipts()
+        ext_sha = hashlib.sha256((e2e.DEFAULT_CSRC_DIR / e2e.EXT_CU_FILENAME).read_bytes()).hexdigest()
+        infer_sha = hashlib.sha256((e2e.DEFAULT_CSRC_DIR / e2e.INFER_CU_FILENAME).read_bytes()).hexdigest()
+        self.assertEqual(live["train_live_cu_sha256"], ext_sha)
+        self.assertEqual(live["infer_live_cu_sha256"], infer_sha)
+        self.assertFalse(live["live_bench_ran_on_bound_source"])
+        tr_src = json.loads((e2e.DEFAULT_CSRC_DIR / e2e.TRAIN_LIVE_FILENAME).read_text(encoding="utf-8"))
+        inf_src = json.loads((e2e.DEFAULT_CSRC_DIR / e2e.INFER_LIVE_FILENAME).read_text(encoding="utf-8"))
+        self.assertEqual(live["live_results_sha256"]["training"], e2e.live_results_sha256(tr_src))
+        self.assertEqual(live["live_results_sha256"]["inference"], e2e.live_results_sha256(inf_src))
+        self.assertIs(tr_src["source_binding"]["bench_ran_on_bound_source"], False)
+        self.assertNotEqual(
+            tr_src["source_binding"]["bench_source_cu_sha256"], tr_src["source_binding"]["cu_sha256"]
+        )
+        self.assertIs(inf_src["source_binding"]["bench_ran_on_bound_source"], False)
+        self.assertNotEqual(
+            inf_src["source_binding"]["bench_source_cu_sha256"], inf_src["source_binding"]["cu_sha256"]
+        )
+
+        td_root = Path(tempfile.mkdtemp(prefix="holo_live_bind_r5_"))
+        self.addCleanup(lambda: shutil.rmtree(td_root, ignore_errors=True))
+        td = td_root / "csrc"
+        shutil.copytree(e2e.DEFAULT_CSRC_DIR, td)
+
+        def _reset() -> None:
+            shutil.rmtree(td, ignore_errors=True)
+            shutil.copytree(e2e.DEFAULT_CSRC_DIR, td)
+
+        def _load(name: str) -> dict:
+            return json.loads((td / name).read_text(encoding="utf-8"))
+
+        def _write(name: str, obj: dict) -> None:
+            (td / name).write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        # Clean temp copy passes
+        clean = e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(clean["train_live_cu_sha256"], ext_sha)
+        self.assertEqual(clean["infer_live_cu_sha256"], infer_sha)
+
+        # (a) one appended byte on holosphere_v3_ext.cu -> E2E_LIVE_SRC_SHA
+        with (td / e2e.EXT_CU_FILENAME).open("ab") as fh:
+            fh.write(b"\n")
+        with self.assertRaises(HoloSphereError) as ctx_a:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_a.exception.code, "E2E_LIVE_SRC_SHA")
+        _reset()
+
+        # (b) one appended byte on holosphere_v3_infer_sm86.cu -> E2E_LIVE_SRC_SHA
+        with (td / e2e.INFER_CU_FILENAME).open("ab") as fh:
+            fh.write(b"\n")
+        with self.assertRaises(HoloSphereError) as ctx_b:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_b.exception.code, "E2E_LIVE_SRC_SHA")
+        _reset()
+
+        # (c) tamper core tok_per_sec_6L_fwd_bwd without re-signing -> E2E_LIVE_RESULTS_SHA
+        tr_bad = _load(e2e.TRAIN_LIVE_FILENAME)
+        tr_bad["benchmarks"]["core_chunk32_6L_B4_T8192_fwd_bwd"]["tok_per_sec_6L_fwd_bwd"] = 1.0
+        _write(e2e.TRAIN_LIVE_FILENAME, tr_bad)
+        with self.assertRaises(HoloSphereError) as ctx_c:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_c.exception.code, "E2E_LIVE_RESULTS_SHA")
+        _reset()
+
+        # (d) tamper cuda_graph_mj_per_tok in the inference JSON -> E2E_LIVE_RESULTS_SHA
+        inf_bad = _load(e2e.INFER_LIVE_FILENAME)
+        inf_bad["benchmarks_15m_6L_sm86"]["tied_fwht256_0B_lm_head"]["cuda_graph_mj_per_tok"] = 1.0
+        _write(e2e.INFER_LIVE_FILENAME, inf_bad)
+        with self.assertRaises(HoloSphereError) as ctx_d:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_d.exception.code, "E2E_LIVE_RESULTS_SHA")
+        _reset()
+
+        # (e) delete source_binding -> E2E_LIVE_SRC_BINDING
+        tr_nb = _load(e2e.TRAIN_LIVE_FILENAME)
+        del tr_nb["source_binding"]
+        _write(e2e.TRAIN_LIVE_FILENAME, tr_nb)
+        with self.assertRaises(HoloSphereError) as ctx_e:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_e.exception.code, "E2E_LIVE_SRC_BINDING")
+        _reset()
+
+        # (f) bench_source_cu_sha256 == cu_sha256 while bench_ran_on_bound_source is false
+        #     -> E2E_LIVE_SRC_BINDING
+        tr_eq = _load(e2e.TRAIN_LIVE_FILENAME)
+        tr_eq["source_binding"]["bench_source_cu_sha256"] = tr_eq["source_binding"]["cu_sha256"]
+        _write(e2e.TRAIN_LIVE_FILENAME, tr_eq)
+        with self.assertRaises(HoloSphereError) as ctx_f:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_f.exception.code, "E2E_LIVE_SRC_BINDING")
+        _reset()
+
+        # Clean again after the resets
+        e2e.verify_e2e_live_receipts(td)
+
+    def test_06_energy_status_must_be_uncontrolled(self) -> None:
+        live = e2e.verify_e2e_live_receipts()
+        self.assertEqual(live["energy_status"], "uncontrolled_provisional")
+
+        td_root = Path(tempfile.mkdtemp(prefix="holo_energy_r5_"))
+        self.addCleanup(lambda: shutil.rmtree(td_root, ignore_errors=True))
+        td = td_root / "csrc"
+        shutil.copytree(e2e.DEFAULT_CSRC_DIR, td)
+
+        def _load(name: str) -> dict:
+            return json.loads((td / name).read_text(encoding="utf-8"))
+
+        def _write(name: str, obj: dict) -> None:
+            (td / name).write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        def _resign(obj: dict) -> None:
+            obj["source_binding"]["results_sha256"] = e2e.live_results_sha256(obj)
+
+        # status "controlled" in the training JSON (hash recomputed so only the energy gate fires)
+        tr_bad = _load(e2e.TRAIN_LIVE_FILENAME)
+        tr_bad["energy_measurement"]["status"] = "controlled"
+        _resign(tr_bad)
+        _write(e2e.TRAIN_LIVE_FILENAME, tr_bad)
+        with self.assertRaises(HoloSphereError) as ctx_ctrl:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_ctrl.exception.code, "E2E_ENERGY_STATUS")
+
+        # energy_measurement deleted from the inference JSON (hash recomputed)
+        shutil.rmtree(td, ignore_errors=True)
+        shutil.copytree(e2e.DEFAULT_CSRC_DIR, td)
+        inf_bad = _load(e2e.INFER_LIVE_FILENAME)
+        del inf_bad["energy_measurement"]
+        _resign(inf_bad)
+        _write(e2e.INFER_LIVE_FILENAME, inf_bad)
+        with self.assertRaises(HoloSphereError) as ctx_del:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_del.exception.code, "E2E_ENERGY_STATUS")
+
+        # Clean again
+        shutil.rmtree(td, ignore_errors=True)
+        shutil.copytree(e2e.DEFAULT_CSRC_DIR, td)
+        clean = e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(clean["energy_status"], "uncontrolled_provisional")
 
     def test_03_stdlib_a16_secded_dual_swar_weft16_razor64_and_pure_stdlib_probe(self) -> None:
         st = e2e.run_e2e_stdlib_self_test()
