@@ -1,0 +1,397 @@
+{
+  "arch": "sm_86",
+  "nonzero_spill_kernels": 0,
+  "nvcc_flags": [
+    "-O3",
+    "-std=c++17",
+    "-arch=sm_86",
+    "-Iinclude",
+    "-Xcompiler",
+    "-fPIC,-Wall,-Wextra,-Werror",
+    "-shared",
+    "--ptxas-options=-v"
+  ],
+  "nvcc_version": "Build cuda_13.4.r13.4/compiler.38855100_0",
+  "provenance_note": "SASS instruction-count parity holds across the pre-refactor Zone-B sources (zone_b_pre_refactor_cu_sha256) and the refactored in-repo sources (cu_sha256, which extract include/razor_abi_4byte_sys.h and cap inference single-CTA launchers at d_model<=512, n_heads<=16); mlos_zone_b_s117_e2e_engine.json (git_head: null) was captured on GA104M prior to PR staging.",
+  "schema": "holosphere.track_s117.e2e_engine_ptxas_zero_spill.v1",
+  "total_kernels": 16,
+  "units": {
+    "inference_runtime": {
+      "cu_filename": "holosphere_v3_infer_sm86.cu",
+      "cu_sha256": "dd79c5d220e533e1d84cf789710fc2adb975f9357cc484255b9abc10d35b057d",
+      "kernels": [
+        {
+          "barriers": 1,
+          "registers": 16,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 21,
+            "STL": 0,
+            "total_insns": 192
+          },
+          "smem_bytes": 128,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer23v3_infer_vring_mix_sm86EPKfS1_S1_S1_Pfi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 16,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 0,
+            "STL": 0,
+            "total_insns": 160
+          },
+          "smem_bytes": 0,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer24v3_infer_swiglu_act_sm86EPKfS1_Pfi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 26,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 55,
+            "STL": 0,
+            "total_insns": 392
+          },
+          "smem_bytes": 0,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer24v3_infer_vring_step_sm86EPKfS1_S1_S1_PfS2_S2_S2_PKii",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 16,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 21,
+            "STL": 0,
+            "total_insns": 192
+          },
+          "smem_bytes": 128,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer26v3_infer_sphere_resid_sm86EPKfS1_S1_Pfi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 12,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 18,
+            "STL": 0,
+            "total_insns": 136
+          },
+          "smem_bytes": 72,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer29v3_infer_sample_gumbel23_sm86EPKfPKjPiPffi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 8,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 0,
+            "STL": 0,
+            "total_insns": 24
+          },
+          "smem_bytes": 0,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer29v3_infer_weft_state_copy_sm86EPfPKfi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 24,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 11,
+            "STL": 0,
+            "total_insns": 176
+          },
+          "smem_bytes": 128,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer30v3_infer_inject_byteconv4_sm86EPKiPKfPfPiS4_i",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 83,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 14,
+            "STL": 0,
+            "total_insns": 544
+          },
+          "smem_bytes": 2112,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer31v3_infer_cayley_sfast_step_sm86EPKfPK6float3S1_S1_PfP6float4S5_ffffi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 77,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 3,
+            "RED_SYS": 2,
+            "SHFL": 7,
+            "STL": 0,
+            "total_insns": 664
+          },
+          "smem_bytes": 4096,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer33v3_infer_a16_qkc_gemv_secded_sm86EPKfPKmPK6__halfS3_S6_S3_S6_PfS7_S7_P23HoloSphereRazorCanary64ii",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 15,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 6,
+            "STL": 0,
+            "total_insns": 128
+          },
+          "smem_bytes": 4096,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer34v3_infer_tied_fwht256_lm_head_sm86EPKfPff",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 96,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 3,
+            "RED_SYS": 2,
+            "SHFL": 9,
+            "STL": 0,
+            "total_insns": 1056
+          },
+          "smem_bytes": 4096,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer36v3_infer_a16_swiglu_gemv_secded_sm86EPKfPKmPK6__halfS3_S6_PfP23HoloSphereRazorCanary64ii",
+          "zero_spill": true
+        },
+        {
+          "barriers": 1,
+          "registers": 76,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 3,
+            "RED_SYS": 2,
+            "SHFL": 5,
+            "STL": 0,
+            "total_insns": 584
+          },
+          "smem_bytes": 4096,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN19holosphere_v3_infer37v3_infer_a16_blockh4_gemv_secded_sm86EPKfPKmPK6__halfPfP23HoloSphereRazorCanary64fii",
+          "zero_spill": true
+        }
+      ],
+      "nonzero_spill_kernels": 0,
+      "sass_instruction_counts": {
+        "ATOMG_GPU": 0,
+        "HMMA_16816": 0,
+        "LDL": 0,
+        "MEMBAR_GL": 0,
+        "MEMBAR_SYS": 9,
+        "RED_SYS": 6,
+        "SHFL": 167,
+        "STL": 0,
+        "total_insns": 4248
+      },
+      "total_kernels": 12,
+      "zone_b_pre_refactor_cu_sha256": "040a5e20b5af66aed3d591c11bb0b98e3a5ed7486c2a326788e2b586bb7ee76e"
+    },
+    "training_ext": {
+      "cu_filename": "holosphere_v3_ext.cu",
+      "cu_sha256": "492715cb0179ff25f96a6888a8dcecdb5f4e1962613915f4362ae97d55491f46",
+      "kernels": [
+        {
+          "barriers": 0,
+          "registers": 128,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 28,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 30,
+            "STL": 0,
+            "total_insns": 2112
+          },
+          "smem_bytes": 6336,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN17holosphere_v3_ext35holosphere_v3_chunk32_bwd_wmma_sm86EPKfS1_S1_S1_S1_S1_PfS2_S2_S2_ffffiiiii",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 20,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 9,
+            "STL": 0,
+            "total_insns": 280
+          },
+          "smem_bytes": 0,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN17holosphere_v3_ext40holosphere_v3_a16_blockh4_ste_quant_sm86EPKfPfi",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 99,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 14,
+            "STL": 0,
+            "total_insns": 704
+          },
+          "smem_bytes": 4356,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN17holosphere_v3_ext41holosphere_v3_chunk32_fwd_persistent_sm86EPKfPK6float3S1_S1_PK6float4PfS8_S8_S8_PS5_S8_S9_ffffiiiii",
+          "zero_spill": true
+        },
+        {
+          "barriers": 0,
+          "registers": 56,
+          "sass": {
+            "ATOMG_GPU": 0,
+            "HMMA_16816": 0,
+            "LDL": 0,
+            "MEMBAR_GL": 0,
+            "MEMBAR_SYS": 0,
+            "RED_SYS": 0,
+            "SHFL": 8,
+            "STL": 0,
+            "total_insns": 368
+          },
+          "smem_bytes": 0,
+          "spill_load_bytes": 0,
+          "spill_store_bytes": 0,
+          "stack_frame_bytes": 0,
+          "symbol": "_ZN17holosphere_v3_ext46holosphere_v3_su2_3line_gu_bwd_persistent_sm86EPKfS1_S1_PK6float3PK6float4S7_PfPS2_PS5_iiiiii",
+          "zero_spill": true
+        }
+      ],
+      "nonzero_spill_kernels": 0,
+      "sass_instruction_counts": {
+        "ATOMG_GPU": 0,
+        "HMMA_16816": 28,
+        "LDL": 0,
+        "MEMBAR_GL": 0,
+        "MEMBAR_SYS": 0,
+        "RED_SYS": 0,
+        "SHFL": 61,
+        "STL": 0,
+        "total_insns": 3464
+      },
+      "total_kernels": 4,
+      "zone_b_pre_refactor_cu_sha256": "266b0d1f79b3f43db69af9e3e133c0711eb657c244f6a17154b79e6b2b2f22c7"
+    }
+  },
+  "zone_b_receipt_sha256": "c989c697dc5f7b0106971755239bcd1d56ceab9365b789891bc55c9e13b8c3a6"
+}

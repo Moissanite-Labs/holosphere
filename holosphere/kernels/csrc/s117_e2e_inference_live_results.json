@@ -1,0 +1,91 @@
+{
+  "a16_packing": {
+    "packed_weight_bytes": 8507520,
+    "packed_weight_mib": 8.113,
+    "total_a16_u64_blocks": 945280,
+    "total_linear_layers_packed": 55,
+    "total_syndrome_errors": 0
+  },
+  "autoregressive_sample_preview": {
+    "generated_token_ids_16": [
+      46,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32
+    ],
+    "generated_utf8_lossy": ".               ",
+    "prompt": "The HoloSphere manifold on S^31 x SU(2) evolves:"
+  },
+  "benchmarks_15m_6L_sm86": {
+    "tied_fwht256_0B_lm_head": {
+      "a16_packed_weight_mib": 8.113,
+      "cuda_graph_mj_per_tok": 26.1572,
+      "cuda_graph_tok_per_sec": 2152.28,
+      "cuda_graph_us_per_tok": 464.624,
+      "effective_a16_bandwidth_gb_s": 18.31,
+      "mode": "tied_fwht256_0B_head",
+      "raw_tok_per_sec": 1581.34,
+      "raw_us_per_tok": 632.376
+    },
+    "trained_a16_lm_head_260": {
+      "a16_packed_weight_mib": 8.113,
+      "cuda_graph_mj_per_tok": 22.957,
+      "cuda_graph_tok_per_sec": 2144.84,
+      "cuda_graph_us_per_tok": 466.235,
+      "effective_a16_bandwidth_gb_s": 18.25,
+      "mode": "trained_a16_lm_head_260",
+      "raw_tok_per_sec": 1763.61,
+      "raw_us_per_tok": 567.018
+    }
+  },
+  "checkpoint_meta": {
+    "eval_bpb_t8192_tail1024": 4.250985,
+    "param_summary": {
+      "causal_byte_conv_params": 2048,
+      "input_embedding_params": 0,
+      "non_embedding_params": 15234817,
+      "total_params": 15234817
+    },
+    "row_name": "Row3_HoloSphereV3_UnifiedCellOp",
+    "scale": "15M",
+    "seed": 2026
+  },
+  "device": "NVIDIA GeForce RTX 3080 Laptop GPU",
+  "live_ded1_weft_pi16_rollback_recovery": {
+    "ded_injected_and_caught_at_step": 40,
+    "live_sys_canary_ded_count": 1,
+    "razor_controller_action": "TIER2_DED_ROLLBACK_AND_MARGIN_UP",
+    "razor_ded_latch_epochs": 64,
+    "recovered_tokens_bit_exact_64_of_64": true,
+    "rollback_state_max_abs_diff": 0.0,
+    "weft_pi16_checkpoint_bytes": 16,
+    "weft_pi16_sha256": "f3d9bb1dc688e7e6058c28ede2089eebad65b6b764f1b0f7364fc5f2ae78c053"
+  },
+  "live_sec16_heal_and_razor_tier1": {
+    "injected_single_bit_faults_across_6L": 16,
+    "live_sys_canary_sec_count": 512,
+    "razor_controller_action": "TIER1_SEC_INLINE_HEALED_MARGIN_UP",
+    "razor_margin_mv_after": "52/1",
+    "sec16_logit_max_abs_diff": 0.0,
+    "sec16_tokens_bit_exact_32_of_32": true
+  },
+  "real_weight_parity_32tok": {
+    "clean_canary_ded": 0,
+    "clean_canary_sec": 0,
+    "exact_token_match_32_of_32": true,
+    "max_logit_abs_err_vs_pytorch_fp32": 1.431e-06
+  },
+  "schema": "holosphere.track_s117.e2e_inference_live.v1"
+}
