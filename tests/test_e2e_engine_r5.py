@@ -346,6 +346,20 @@ class TestHoloSphereV3E2EEngineR5(unittest.TestCase):
         self.assertEqual(ctx_f.exception.code, "E2E_LIVE_SRC_BINDING")
         _reset()
 
+        # (g) bench_ran_on_bound_source=true while bench_source_cu_sha256 != cu_sha256
+        #     -> E2E_LIVE_SRC_BINDING
+        tr_flip = _load(e2e.TRAIN_LIVE_FILENAME)
+        self.assertNotEqual(
+            tr_flip["source_binding"]["bench_source_cu_sha256"],
+            tr_flip["source_binding"]["cu_sha256"],
+        )
+        tr_flip["source_binding"]["bench_ran_on_bound_source"] = True
+        _write(e2e.TRAIN_LIVE_FILENAME, tr_flip)
+        with self.assertRaises(HoloSphereError) as ctx_g:
+            e2e.verify_e2e_live_receipts(td)
+        self.assertEqual(ctx_g.exception.code, "E2E_LIVE_SRC_BINDING")
+        _reset()
+
         # Clean again after the resets
         e2e.verify_e2e_live_receipts(td)
 

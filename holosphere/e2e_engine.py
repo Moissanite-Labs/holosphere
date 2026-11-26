@@ -398,7 +398,7 @@ def _verify_live_source_binding(
         and _is_hex64(sb.get("bench_source_cu_sha256"))
         and _is_hex64(sb.get("results_sha256"))
         and isinstance(sb.get("bench_ran_on_bound_source"), bool)
-        and not (sb["bench_ran_on_bound_source"] is False and sb["bench_source_cu_sha256"] == sb["cu_sha256"]),
+        and (sb["bench_ran_on_bound_source"] is True) == (sb["bench_source_cu_sha256"] == sb["cu_sha256"]),
         f"{live_filename}: source_binding schema/ptxas_unit/cu_rel/sha-fields/bench-flag invalid",
         code="E2E_LIVE_SRC_BINDING",
     )
