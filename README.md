@@ -5,6 +5,10 @@
 > **Founding Thesis ([`docs/MANIFESTO.md`](docs/MANIFESTO.md)) — Ending the False Dualism Between Architecture and Kernel:**  
 > One unit quaternion $q = (w, x, y, z) \in SU(2) \cong S^3$ **is** one 128-bit `float4` GPU register quad (`LDG.E.128`). Instead of bolting geometric layers onto eager PyTorch graphs (which paid a `3.913×` HBM round-trip slowdown in `Track S107 H7b`), **HoloSphere** fuses the kernel and the transformer into **one silicon-isomorphic mathematical entity** — lowering every layer onto zero-spill `float4` warp-shuffle primitives with machine-checked pure-`Init` `Lean 4.36.0` proofs (`lean/`), `Moissanite-Labs/silikernels` export compatibility, and full 3-mode isolated CPU parity.
 
+> **Interactive Explorer — [HoloSphere: Frontier Geometric Inference](https://moissanite-labs.github.io/holosphere/)**
+>
+> A live HoloScript studio with real-time $SU(2) \cong S^3$ manifold rendering, Chunk-32 warp scans, Lean 4 checks, and a repository atlas.
+
 ---
 
 ## The Silicon–Geometry Isomorphism (`NVIDIA Ampere sm_86`)

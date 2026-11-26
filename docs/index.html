@@ -1,0 +1,2774 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HoloSphere — End-to-End Inference Optimization via Frontier Mathematics</title>
+  <meta name="description" content="Explore HoloSphere's frontier geometry through a live HoloScript studio, SU(2) manifold rendering, Chunk-32 warp scans, and Lean 4 verification." />
+  <meta name="theme-color" content="#04060d" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2304060d'/%3E%3Cg fill='none' stroke-width='2'%3E%3Cellipse cx='13' cy='16' rx='9' ry='5.5' transform='rotate(-28 13 16)' stroke='%2338bdf8'/%3E%3Cellipse cx='19' cy='16' rx='9' ry='5.5' transform='rotate(28 19 16)' stroke='%23a78bfa'/%3E%3C/g%3E%3C/svg%3E" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Space Grotesk, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- KaTeX for Frontier Mathematical Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+  <!-- Three.js r128 for Real-Time 3D Manifold Rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Tone.js for Optional Spinor Eigenphase Sonification -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <script>
+    if (window.tailwind) {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              display: ['Space Grotesk', 'Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace']
+            },
+            colors: {
+              obsidian: {
+                950: '#04060d',
+                900: '#080c18',
+                850: '#0d1326',
+                800: '#131c36'
+              }
+            }
+          }
+        }
+      };
+    }
+  </script>
+
+  <style>
+    /* Custom Subtle Scrollbars & Atmospheric Accents */
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      background-color: #04060d;
+      background-image:
+        radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.10), transparent 38%),
+        radial-gradient(circle at 82% 18%, rgba(168, 85, 247, 0.11), transparent 42%),
+        radial-gradient(circle at 50% 62%, rgba(16, 185, 129, 0.06), transparent 48%);
+      overflow-x: hidden;
+    }
+    .bg-math-grid {
+      background-size: 44px 44px;
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.045) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.045) 1px, transparent 1px);
+    }
+    .glass-panel {
+      background: rgba(11, 17, 34, 0.76);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+    .glass-subtle {
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.10);
+    }
+    .code-editor {
+      tab-size: 2;
+      caret-color: #38bdf8;
+      line-height: 1.55;
+    }
+    .code-editor:focus {
+      outline: none;
+    }
+    /* Range Slider Styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(51, 65, 85, 0.7);
+      height: 6px;
+      border-radius: 999px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 2px solid #04060d;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.75);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060913;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #38bdf8;
+    }
+    .katex {
+      font-size: 1.03em;
+    }
+  </style>
+</head>
+<body class="text-slate-100 font-sans antialiased selection:bg-sky-500/30 selection:text-sky-200 bg-math-grid">
+
+  <!-- Non-Blocking Toast Notification Container (No alert() ever used) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Sticky Navigation Header -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-obsidian-950/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <!-- Brand -->
+      <a href="#top" class="flex items-center gap-3 group">
+        <div class="relative w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400/20 via-indigo-500/20 to-emerald-400/20 border border-sky-400/40 flex items-center justify-center shadow-lg shadow-sky-500/10 group-hover:border-sky-300 transition">
+          <!-- Inline SVG Hopf Linked Rings Icon -->
+          <svg class="w-5 h-5 text-sky-300" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2">
+            <ellipse cx="13" cy="16" rx="9" ry="5.5" transform="rotate(-28 13 16)" class="text-sky-400" />
+            <ellipse cx="19" cy="16" rx="9" ry="5.5" transform="rotate(28 19 16)" class="text-purple-400" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-display font-bold text-lg tracking-tight text-white">HoloSphere</span>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              v3-frontier · sm_86
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden md:block font-mono">SU(2) Holonomy · Hopf–Beltrami · Lean 4 Verified</p>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <nav class="hidden lg:flex items-center gap-6 text-sm text-slate-300">
+        <a href="#studio" class="hover:text-sky-300 transition">HoloScript Studio</a>
+        <a href="#warp-scan" class="hover:text-sky-300 transition">Chunk-32 Scan</a>
+        <a href="#pillars" class="hover:text-sky-300 transition">Frontier Math</a>
+        <a href="#verification" class="hover:text-sky-300 transition">Lean 4 &amp; Silicon</a>
+        <a href="#atlas" class="hover:text-sky-300 transition">Repo Atlas</a>
+      </nav>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2.5">
+        <button id="btn-sonic-toggle" type="button" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono border border-slate-700/80 bg-slate-900/80 text-slate-300 hover:border-purple-400/60 hover:text-purple-200 transition" title="Synthesize live SU(2) spinor eigenphases via Tone.js">
+          <span id="sonic-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="sonic-label">Sonic Phase: OFF</span>
+        </button>
+
+        <button id="btn-copy-install" type="button" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-mono bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 border border-sky-400/30 transition">
+          <span>pip install -e .</span>
+          <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="top" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-24 space-y-24">
+
+    <!-- HERO HEADER -->
+    <section class="relative">
+      <div class="max-w-4xl space-y-6">
+        <div class="inline-flex flex-wrap items-center gap-2 px-3.5 py-1.5 rounded-full glass-subtle text-xs font-mono text-sky-300 border border-sky-500/25">
+          <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+          <span>Architecture–Kernel Isomorphism</span>
+          <span class="text-slate-600">|</span>
+          <span class="text-purple-300">Barrington NC¹ Spinors</span>
+          <span class="text-slate-600">|</span>
+          <span class="text-emerald-300">0-Byte PTXAS Spill</span>
+        </div>
+
+        <h1 class="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.08]">
+          End-to-End Optimization of Inference via
+          <span class="bg-gradient-to-r from-sky-300 via-indigo-300 to-emerald-300 bg-clip-text text-transparent">
+            Holospheric Geometry.
+          </span>
+        </h1>
+
+        <p class="text-base sm:text-lg text-slate-300/90 leading-relaxed max-w-3xl">
+          Standard Transformers hit quadratic KV-cache walls, while commutative scalar state-space models collapse to
+          <span id="math-inline-tc0" class="font-mono text-amber-300">TC⁰</span> expressivity ceilings.
+          <strong class="text-white font-semibold">HoloSphere</strong> unifies sequence representation, quantization, and GPU warp execution onto a single manifold:
+          parallel-scanning non-abelian <span id="math-inline-su2" class="font-mono text-sky-300">SU(2) ≅ S³</span> spinor holonomy across
+          <strong>Hopf fibrations</strong>, <strong>Beltrami projective chords</strong>, and <strong>E₈ Weft shells</strong>—compiled to zero-spill
+          <code class="px-1.5 py-0.5 rounded bg-slate-800/90 text-sky-300 font-mono text-sm">sm_86</code> kernels and machine-checked in <strong>Lean 4</strong>.
+        </p>
+
+        <!-- Quick Hero Action Pills -->
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <a href="#studio" class="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl font-medium text-sm bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-lg shadow-sky-500/20 transition">
+            <span>Launch Live HoloScript Studio</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </a>
+          <a href="#warp-scan" class="inline-flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-sm glass-panel text-slate-200 hover:border-sky-400/50 transition">
+            <span>Inspect Chunk-32 Warp Scan</span>
+          </a>
+          <a href="#verification" class="inline-flex items-center gap-2 px-4 py-3 rounded-xl font-medium text-sm glass-panel text-emerald-300 hover:border-emerald-400/50 transition">
+            <span>Run Browser Lean Oracle</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Key Repo Metrics Strip -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mt-8">
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Sequence State</div>
+          <div class="font-display text-xl sm:text-2xl font-bold text-sky-300 mt-1">O(1) Memory</div>
+          <div class="text-xs text-slate-400 mt-1 font-mono">Unit S³ Spinor Transport</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Circuit Class</div>
+          <div class="font-display text-xl sm:text-2xl font-bold text-purple-300 mt-1">NC¹-Complete</div>
+          <div class="text-xs text-slate-400 mt-1 font-mono">barrington_su2.py</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400">CUDA sm_86 PTXAS</div>
+          <div class="font-display text-xl sm:text-2xl font-bold text-emerald-300 mt-1">0 B Spills</div>
+          <div class="text-xs text-slate-400 mt-1 font-mono">h256_chunk32 · v3_frontier</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-4">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Register Wire ABI</div>
+          <div class="font-display text-xl sm:text-2xl font-bold text-amber-300 mt-1">4-Byte Razor</div>
+          <div class="text-xs text-slate-400 mt-1 font-mono">razor_abi_4byte_sys.h</div>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 col-span-2 md:col-span-1">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Formal Proofs</div>
+          <div class="font-display text-xl sm:text-2xl font-bold text-rose-300 mt-1">5 Lean Suites</div>
+          <div class="text-xs text-slate-400 mt-1 font-mono">Zero sorry · R5 Verified</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 1: INTERACTIVE HOLOSPHERIC GEOMETRY & HOLOSCRIPT LIVE STUDIO  -->
+    <!-- ===================================================================== -->
+    <section id="studio" class="scroll-mt-20 space-y-5">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-sky-400 mb-1">Interactive Mathematical Scripting Engine</div>
+          <h2 class="font-display text-2xl sm:text-3xl font-bold text-white">
+            HoloScript Live Manifold Studio
+          </h2>
+          <p class="text-sm text-slate-400 mt-1 max-w-2xl">
+            Select any holospheric kernel preset—or edit the live parametric differential geometry script directly—to sculpt real-time volumetric fibers, spinor commutators, Beltrami chords, and <span class="font-mono text-slate-300">E₈</span> Gosset shells at 60 FPS.
+          </p>
+        </div>
+
+        <!-- Preset Selector Pills -->
+        <div class="flex flex-wrap gap-2" id="preset-buttons">
+          <button type="button" data-preset="hopf" class="preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-sky-500/20 border-sky-400 text-sky-200">
+            01 · Hopf Villarceau
+          </button>
+          <button type="button" data-preset="barrington" class="preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500">
+            02 · Barrington SU(2)
+          </button>
+          <button type="button" data-preset="beltrami" class="preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500">
+            03 · Beltrami–Cayley
+          </button>
+          <button type="button" data-preset="e8shell" class="preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500">
+            04 · E₈ Bingham Shell
+          </button>
+          <button type="button" data-preset="warpscan" class="preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500">
+            05 · Chunk-32 Holonomy
+          </button>
+        </div>
+      </div>
+
+      <!-- Studio Grid: 7 Cols 3D Viewport + 5 Cols Live Mathematical Script & Controls -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
+
+        <!-- LEFT: 3D WebGL Holosphere Viewport -->
+        <div class="xl:col-span-7 glass-panel rounded-3xl overflow-hidden relative flex flex-col min-h-[520px] sm:min-h-[620px]">
+          <!-- Top Telemetry Overlay -->
+          <div class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
+            <div class="glass-subtle rounded-2xl px-3.5 py-2.5 space-y-1 pointer-events-auto">
+              <div class="flex items-center gap-2 text-[11px] font-mono">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="hud-mode-title" class="text-white font-semibold">S¹ ↪ S³ → S² Hopf Fibration</span>
+              </div>
+              <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] font-mono text-slate-300">
+                <div>‖q‖<sub>S³</sub>: <span id="hud-norm" class="text-emerald-300">1.000000</span></div>
+                <div>Link ℒ: <span id="hud-link" class="text-sky-300">+1 (Villarceau)</span></div>
+                <div>½Tr[U,V]: <span id="hud-comm" class="text-purple-300">0.1420</span></div>
+                <div>Darboux τ<sub>g</sub>: <span id="hud-torsion" class="text-amber-300">0.984 rad</span></div>
+              </div>
+            </div>
+
+            <!-- Viewport Controls -->
+            <div class="flex items-center gap-1.5 pointer-events-auto">
+              <button id="btn-toggle-darboux" type="button" class="px-2.5 py-1.5 rounded-xl text-[11px] font-mono glass-subtle text-amber-200 border border-amber-400/30 hover:border-amber-300 transition" title="Toggle moving Darboux surface frame (T, B_g, N)">
+                Darboux Triad: ON
+              </button>
+              <button id="btn-pause-sim" type="button" class="px-2.5 py-1.5 rounded-xl text-[11px] font-mono glass-subtle text-slate-200 hover:border-sky-400/50 transition">
+                Pause
+              </button>
+              <button id="btn-reset-cam" type="button" class="px-2.5 py-1.5 rounded-xl text-[11px] font-mono glass-subtle text-slate-200 hover:border-sky-400/50 transition">
+                Reset View
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive 3D Three.js Canvas Container -->
+          <div id="webgl-container" class="w-full flex-1 cursor-grab active:cursor-grabbing relative select-none"></div>
+
+          <!-- Interactive S² Base Bloch Sphere Controller Overlay (Bottom Left) -->
+          <div class="absolute bottom-3 left-3 z-10 glass-panel rounded-2xl p-3 w-44 sm:w-48 select-none">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-mono uppercase tracking-wider text-sky-300 font-semibold">Base S² Bloch Pad</span>
+              <span class="text-[10px] font-mono text-slate-400">Drag nodes</span>
+            </div>
+            <div class="relative w-full aspect-square rounded-xl bg-obsidian-950/90 border border-slate-800 overflow-hidden">
+              <canvas id="s2-pad-canvas" class="w-full h-full block touch-none cursor-crosshair"></canvas>
+            </div>
+            <p class="text-[10px] text-slate-400 font-mono mt-1.5 leading-snug">
+              Steers 3 highlighted <span class="text-amber-300">π⁻¹(n)</span> fibers on S³ in real time.
+            </p>
+          </div>
+
+          <!-- Legend Overlay (Bottom Right) -->
+          <div class="hidden sm:flex absolute bottom-3 right-3 z-10 glass-subtle rounded-2xl px-3 py-2 flex-col gap-1 text-[10px] font-mono text-slate-300 pointer-events-none">
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-0.5 bg-emerald-400 inline-block"></span> Darboux Tangent <strong>T</strong></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-0.5 bg-rose-400 inline-block"></span> Geodesic Binormal <strong>B<sub>g</sub></strong></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-0.5 bg-amber-300 inline-block"></span> Surface Normal <strong>N</strong></div>
+            <div class="text-slate-400 pt-0.5">Drag to orbit · Scroll to zoom</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Live Mathematical Equation + HoloScript Editor + Dynamic Sliders -->
+        <div class="xl:col-span-5 flex flex-col gap-4">
+
+          <!-- Live Symbolic Formula Card (KaTeX) -->
+          <div class="glass-panel rounded-3xl p-4 sm:p-5 space-y-2">
+            <div class="flex items-center justify-between">
+              <span id="formula-badge" class="text-[11px] font-mono text-sky-300 uppercase tracking-wider">holosphere/geometry/hopf.py</span>
+              <span class="text-[11px] font-mono text-emerald-300">Exact Analytic Kernel</span>
+            </div>
+            <div id="studio-katex-box" class="py-2 px-3 rounded-xl bg-obsidian-950/80 border border-slate-800/80 overflow-x-auto text-center min-h-[60px] flex items-center justify-center"></div>
+            <p id="formula-caption" class="text-xs text-slate-300 leading-relaxed"></p>
+          </div>
+
+          <!-- Parametric Sliders -->
+          <div class="glass-panel rounded-3xl p-4 sm:p-5 space-y-3.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold">Manifold Parameters</span>
+              <span class="text-[11px] font-mono text-slate-400">60 FPS Zero-Alloc</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <div class="flex justify-between text-xs font-mono mb-1">
+                  <label for="slider-alpha" id="label-alpha" class="text-slate-300">Pole Compression α</label>
+                  <span id="val-alpha" class="text-sky-300">0.78</span>
+                </div>
+                <input id="slider-alpha" type="range" min="0.35" max="0.93" step="0.01" value="0.78" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-mono mb-1">
+                  <label for="slider-p1" id="label-p1" class="text-slate-300">Base Latitude θ₀</label>
+                  <span id="val-p1" class="text-sky-300">1.15</span>
+                </div>
+                <input id="slider-p1" type="range" min="0.15" max="2.95" step="0.01" value="1.15" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-mono mb-1">
+                  <label for="slider-p2" id="label-p2" class="text-slate-300">Lobe Winding k</label>
+                  <span id="val-p2" class="text-purple-300">3.00</span>
+                </div>
+                <input id="slider-p2" type="range" min="0" max="7" step="0.1" value="3.0" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-mono mb-1">
+                  <label for="slider-p3" id="label-p3" class="text-slate-300">Amplitude / Blend β</label>
+                  <span id="val-p3" class="text-emerald-300">0.48</span>
+                </div>
+                <input id="slider-p3" type="range" min="0" max="1" step="0.01" value="0.48" class="w-full" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Editable HoloScript Mathematical Kernel -->
+          <div class="glass-panel rounded-3xl p-4 sm:p-5 flex-1 flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                <span id="script-filename" class="text-xs font-mono font-semibold text-white">01_hopf_villarceau.holo</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="compile-status" class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Compiled · Valid
+                </span>
+                <button id="btn-run-script" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/40 transition">
+                  Eval (Ctrl+Enter)
+                </button>
+              </div>
+            </div>
+
+            <div class="text-[11px] font-mono text-slate-400 mb-1.5">
+              fn <span class="text-sky-300">sampleFiber</span>(i, N, s, t, params) <span class="text-slate-500">// hopf, stereo, su2Exp, su2Mul, commutator, beltrami, e8Root</span>
+            </div>
+
+            <textarea id="holoscript-editor" spellcheck="false" class="code-editor w-full flex-1 min-h-[205px] rounded-2xl bg-obsidian-950/95 border border-slate-800 focus:border-sky-400/60 p-3.5 text-xs font-mono text-sky-100 resize-y"></textarea>
+
+            <div id="script-error-banner" class="hidden mt-2 px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-[11px] font-mono text-rose-200"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 2: CHUNK-32 SU(2) PARALLEL HOLONOMY WARP SCANNER              -->
+    <!-- ===================================================================== -->
+    <section id="warp-scan" class="scroll-mt-20 space-y-6">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-purple-400 mb-1">
+            holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu · chunk32_ops.py
+          </div>
+          <h2 class="font-display text-2xl sm:text-3xl font-bold text-white">
+            Interactive Chunk-32 Warp Parallel Holonomy Scan
+          </h2>
+          <p class="text-sm text-slate-400 mt-1 max-w-3xl">
+            A 32-thread GPU warp is algebraically isomorphic to an associative binary prefix tree over <span class="font-mono text-sky-300">SU(2)</span>.
+            In exactly <strong class="text-white">5 intra-warp <code class="text-purple-300 font-mono">__shfl_up_sync</code> steps</strong>, HoloSphere computes exact sequence holonomy
+            <span class="font-mono text-slate-200">Q₀:ₜ = q₀ ⊗ q₁ ⊗ … ⊗ qₜ</span> with zero shared-memory bank conflicts, zero register spills, and zero vanishing gradients.
+          </p>
+        </div>
+
+        <!-- Mode & Playback Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="inline-flex rounded-xl p-1 bg-slate-900/90 border border-slate-800">
+            <button id="btn-scan-su2" type="button" class="px-3 py-1.5 rounded-lg text-xs font-mono bg-sky-500/20 text-sky-200 border border-sky-400/40 transition">
+              SU(2) Spinor Scan (NC¹)
+            </button>
+            <button id="btn-scan-scalar" type="button" class="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition">
+              Scalar Diagonal SSM (TC⁰)
+            </button>
+          </div>
+          <button id="btn-step-scan" type="button" class="px-3.5 py-2 rounded-xl text-xs font-mono glass-panel text-purple-200 hover:border-purple-400/60 transition">
+            Next Pass →
+          </button>
+          <button id="btn-auto-scan" type="button" class="px-3.5 py-2 rounded-xl text-xs font-mono bg-purple-500/20 text-purple-200 border border-purple-400/40 hover:bg-purple-500/30 transition">
+            Auto-Step: ON
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Warp Butterfly Canvas -->
+        <div class="lg:col-span-8 glass-panel rounded-3xl p-4 sm:p-6 flex flex-col justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-3">
+              <span id="scan-pass-badge" class="px-2.5 py-1 rounded-lg text-xs font-mono bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                Pass 5 / 5 · Stride = 16 (Complete Prefix Q₀:₃₁)
+              </span>
+              <span class="text-xs font-mono text-slate-400 hidden sm:inline">Click or hover any GPU lane (0–31)</span>
+            </div>
+            <div class="flex gap-1.5" id="pass-dots">
+              <button type="button" data-pass="0" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400">P0</button>
+              <button type="button" data-pass="1" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400">P1</button>
+              <button type="button" data-pass="2" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400">P2</button>
+              <button type="button" data-pass="3" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400">P3</button>
+              <button type="button" data-pass="4" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400">P4</button>
+              <button type="button" data-pass="5" class="pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-purple-500/30 text-purple-200 border border-purple-400/50">P5</button>
+            </div>
+          </div>
+
+          <div class="w-full h-[300px] sm:h-[340px] rounded-2xl bg-obsidian-950/90 border border-slate-800/90 overflow-hidden relative">
+            <canvas id="warp-scan-canvas" class="w-full h-full block cursor-pointer"></canvas>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
+            <span id="scan-summary-text">All 32 lanes preserve exact unit norm ‖Q_k‖ = 1.000000 across non-abelian parallel prefix transport.</span>
+            <span class="text-sky-300">__shfl_up_sync(0xffffffff, q_reg, stride)</span>
+          </div>
+        </div>
+
+        <!-- Right: Selected Lane Spinor & 4-Byte Razor ABI Register Inspector -->
+        <div class="lg:col-span-4 glass-panel rounded-3xl p-5 flex flex-col justify-between space-y-5">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono uppercase tracking-wider text-amber-300">Lane Register Inspector</span>
+              <span id="lane-id-badge" class="px-2.5 py-0.5 rounded-full text-xs font-mono bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                laneId = 31
+              </span>
+            </div>
+
+            <!-- Quaternion Components -->
+            <div class="mt-4 p-3.5 rounded-2xl bg-obsidian-950/85 border border-slate-800 space-y-2 font-mono text-xs">
+              <div class="text-slate-400 text-[11px]">Accumulated Prefix State <span class="text-white">Q<sub>0:lane</sub> ∈ S³</span></div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="p-2 rounded-lg bg-slate-900/80">w: <span id="reg-w" class="text-sky-300">+0.4128</span></div>
+                <div class="p-2 rounded-lg bg-slate-900/80">x·i: <span id="reg-x" class="text-purple-300">-0.5812</span></div>
+                <div class="p-2 rounded-lg bg-slate-900/80">y·j: <span id="reg-y" class="text-emerald-300">+0.6204</span></div>
+                <div class="p-2 rounded-lg bg-slate-900/80">z·k: <span id="reg-z" class="text-amber-300">-0.3291</span></div>
+              </div>
+              <div class="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
+                <span class="text-slate-400">State Norm ‖Q‖₂:</span>
+                <span id="reg-norm" class="text-emerald-300 font-semibold">1.000000</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4-Byte Razor ABI Bit-Level Layout (include/razor_abi_4byte_sys.h) -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono text-slate-300 font-semibold">include/razor_abi_4byte_sys.h</span>
+              <span id="razor-hex" class="text-xs font-mono text-amber-300">0x6B4E9A1C</span>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Packs projective Beltrami tangent coordinates + Hopf <span class="font-mono text-slate-200">U(1)</span> fiber phase into a single <strong>32-bit lane register word</strong> for single-instruction warp shuffles:
+            </p>
+
+            <!-- 32-Bit Segmented Bar -->
+            <div class="rounded-2xl bg-obsidian-950/90 border border-slate-800 p-3 space-y-2 font-mono text-[10px]">
+              <div class="grid grid-cols-12 gap-1 text-center">
+                <div class="col-span-2 py-1.5 rounded bg-rose-500/20 border border-rose-400/40 text-rose-200" title="Hemisphere / Chart Bits [31:29]">
+                  Chart<br/><span id="abi-chart" class="text-[9px] opacity-80">3b</span>
+                </div>
+                <div class="col-span-4 py-1.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-200" title="Beltrami Chord u [28:19]">
+                  Beltrami u<br/><span id="abi-u" class="text-[9px] opacity-80">10b</span>
+                </div>
+                <div class="col-span-3 py-1.5 rounded bg-purple-500/20 border border-purple-400/40 text-purple-200" title="Beltrami Chord v [18:9]">
+                  Beltrami v<br/><span id="abi-v" class="text-[9px] opacity-80">10b</span>
+                </div>
+                <div class="col-span-3 py-1.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200" title="Hopf Phase ψ [8:0]">
+                  Hopf ψ<br/><span id="abi-psi" class="text-[9px] opacity-80">9b</span>
+                </div>
+              </div>
+              <div id="razor-bits" class="text-[10px] text-slate-400 tracking-tight break-all text-center pt-0.5">
+                011 · 1011010011 · 1010011010 · 000111100
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 3: THE FIVE FRONTIER MATHEMATICAL PILLARS                     -->
+    <!-- ===================================================================== -->
+    <section id="pillars" class="scroll-mt-20 space-y-6">
+      <div>
+        <div class="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-1">Differential Geometry × Complexity Theory × Lattice Coding</div>
+        <h2 class="font-display text-2xl sm:text-3xl font-bold text-white">
+          Five Mathematical Spines of HoloSphere
+        </h2>
+        <p class="text-sm text-slate-400 mt-1 max-w-3xl">
+          Every module in <code class="font-mono text-sky-300">holosphere/geometry/</code> and <code class="font-mono text-sky-300">holosphere/models/</code> eliminates an inference bottleneck by replacing ad-hoc heuristics with exact geometric invariants.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Pillar 1: Hopf Fibration -->
+        <article class="glass-panel rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-sky-400/40 transition">
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30">geometry/hopf.py</span>
+              <span class="text-slate-400">12.7 KB</span>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white">Hopf Fibration Factoring</h3>
+            <p class="text-sm text-slate-300/90 leading-relaxed">
+              Decomposes unit spinor states on <span class="font-mono text-sky-300">S³</span> into observable semantic directions on the Bloch base sphere <span class="font-mono text-sky-300">S²</span> and protected <span class="font-mono text-amber-300">U(1) ≅ S¹</span> Berry holonomy memory fibers.
+            </p>
+          </div>
+          <div id="pillar-math-1" class="p-3 rounded-2xl bg-obsidian-950/85 border border-slate-800/80 overflow-x-auto text-center"></div>
+        </article>
+
+        <!-- Pillar 2: Barrington SU(2) -->
+        <article class="glass-panel rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-purple-400/40 transition">
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">barrington_su2.py</span>
+              <span class="text-slate-400">46.7 KB</span>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white">Barrington Spinor Universality</h3>
+            <p class="text-sm text-slate-300/90 leading-relaxed">
+              Diagonal linear recurrences commute and cannot track permutations or parity. Non-solvable <span class="font-mono text-purple-300">SU(2)</span> group commutators simulate bounded-width <strong class="text-white">NC¹</strong> branching programs in <span class="font-mono">O(log T)</span> scan depth.
+            </p>
+          </div>
+          <div id="pillar-math-2" class="p-3 rounded-2xl bg-obsidian-950/85 border border-slate-800/80 overflow-x-auto text-center"></div>
+        </article>
+
+        <!-- Pillar 3: Beltrami & Cayley -->
+        <article class="glass-panel rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-rose-400/40 transition">
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">geometry/beltrami.py</span>
+              <span class="text-slate-400">10.7 KB</span>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white">Beltrami–Cayley Geodesics</h3>
+            <p class="text-sm text-slate-300/90 leading-relaxed">
+              Beltrami central projection straightens curved geodesics into Euclidean chords inside <span class="font-mono text-rose-300">𝔹³</span>, while rational Cayley maps lift <span class="font-mono">𝔰𝔲(2) → SU(2)</span> with zero transcendental <code class="font-mono">sin/cos</code> overhead.
+            </p>
+          </div>
+          <div id="pillar-math-3" class="p-3 rounded-2xl bg-obsidian-950/85 border border-slate-800/80 overflow-x-auto text-center"></div>
+        </article>
+
+        <!-- Pillar 4: Bingham & Darboux -->
+        <article class="glass-panel rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-amber-400/40 transition">
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <span class="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">bingham.py · darboux.py</span>
+              <span class="text-slate-400">7.5 KB</span>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white">Antipodal Bingham &amp; Darboux</h3>
+            <p class="text-sm text-slate-300/90 leading-relaxed">
+              Because <span class="font-mono text-amber-300">±q ∈ S³</span> double-cover <span class="font-mono">SO(3)</span>, HoloSphere models directional readout with antipodally symmetric Bingham densities on <span class="font-mono">ℝℙ³</span> steered by Darboux geodesic torsion <span class="font-mono">τ_g</span>.
+            </p>
+          </div>
+          <div id="pillar-math-4" class="p-3 rounded-2xl bg-obsidian-950/85 border border-slate-800/80 overflow-x-auto text-center"></div>
+        </article>
+
+        <!-- Pillar 5: E8 Null-Modem & Weft Shell -->
+        <article class="glass-panel rounded-3xl p-6 flex flex-col justify-between space-y-4 hover:border-emerald-400/40 transition md:col-span-2 lg:col-span-2">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            <div class="lg:col-span-7 space-y-2.5">
+              <div class="flex items-center gap-2 text-xs font-mono">
+                <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">models/nullmodem_e8.py · weft_shell.py</span>
+                <span class="text-slate-400">17.4 KB</span>
+              </div>
+              <h3 class="font-display text-xl font-bold text-white">E₈ Gosset Lattice Null-Modem &amp; Weft–Warp Shell</h3>
+              <p class="text-sm text-slate-300/90 leading-relaxed">
+                Pairs of quaternionic spinor fibers live naturally in <span class="font-mono text-emerald-300">ℍ ⊕ ℍ ≅ ℝ⁸</span>, where Viazovska's theorem proves the <strong>240-root E₈ lattice</strong> achieves optimal 8D sphere packing. HoloSphere weaves longitudinal <span class="font-mono">SU(2)</span> sequence scans (<em>warp</em>) with transverse <span class="font-mono">E₈</span> cross-channel bridges (<em>weft</em>) across <span class="font-mono">H = 256</span> fibers.
+              </p>
+            </div>
+            <div class="lg:col-span-5">
+              <div id="pillar-math-5" class="p-4 rounded-2xl bg-obsidian-950/85 border border-slate-800/80 overflow-x-auto text-center"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 4: LEAN 4 FORMAL VERIFICATION & ZERO-SPILL SILICON RECEIPTS   -->
+    <!-- ===================================================================== -->
+    <section id="verification" class="scroll-mt-20 space-y-6">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-amber-300 mb-1">lean/ · holosphere/kernels/csrc/</div>
+          <h2 class="font-display text-2xl sm:text-3xl font-bold text-white">
+            Machine-Checked Proofs &amp; Zero-Spill Silicon Receipts
+          </h2>
+          <p class="text-sm text-slate-400 mt-1 max-w-3xl">
+            Mathematical elegance only matters for inference if it survives IEEE-754 arithmetic and GPU register allocation. Explore the 5 Lean 4 theorem suites, run a live browser-side randomized oracle check, and inspect the <code class="font-mono text-emerald-300">ptxas</code> zero-spill kernel receipts.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- LEFT: Lean 4 Suite Browser + Live Randomized Browser Oracle -->
+        <div class="lg:col-span-7 glass-panel rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-mono uppercase tracking-wider text-emerald-300 font-semibold">Lean 4 Formal Verification Suites (213.7 KB)</span>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                holosphere_lean_certificate.json · PASS
+              </span>
+            </div>
+
+            <!-- Suite Selector Tabs -->
+            <div class="flex flex-wrap gap-1.5" id="lean-tabs">
+              <button type="button" data-lean="invariants" class="lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-emerald-500/20 text-emerald-200 border border-emerald-400/40">
+                Invariants.lean
+              </button>
+              <button type="button" data-lean="barrington" class="lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-600">
+                SpinorBarrington.lean
+              </button>
+              <button type="button" data-lean="bridges" class="lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-600">
+                CrossSpineBridges.lean
+              </button>
+              <button type="button" data-lean="cellop" class="lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-600">
+                CellOpInvariants.lean
+              </button>
+              <button type="button" data-lean="convergence" class="lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-600">
+                ConvergenceTheorems.lean
+              </button>
+            </div>
+
+            <!-- Selected Lean Snippet Display -->
+            <div class="rounded-2xl bg-obsidian-950/95 border border-slate-800 p-4 font-mono text-xs overflow-x-auto space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80 pb-2">
+                <span id="lean-file-label" class="text-emerald-300">lean/HoloSphereInvariants.lean (71,047 bytes)</span>
+                <span>Generated from lean/ · 0 sorry</span>
+              </div>
+              <pre id="lean-code-view" class="text-slate-200 leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+            </div>
+          </div>
+
+          <!-- Interactive Browser-Side Randomized Oracle (Inspired by lean/holosphere_lean_oracle.py) -->
+          <div class="rounded-2xl bg-slate-900/75 border border-slate-800 p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-mono font-semibold text-white">Live Browser Property Oracle (<span class="text-sky-300">holosphere_lean_oracle</span>)</div>
+                <div class="text-[11px] text-slate-400">Runs 1,250 random draws × 4 IEEE-754 invariant checks (5,000 evaluations) in your browser, pass/fail at tolerance 1e-12</div>
+              </div>
+              <button id="btn-run-oracle" type="button" class="px-3.5 py-2 rounded-xl text-xs font-mono font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 transition">
+                Run 1,250-Draw Check
+              </button>
+            </div>
+
+            <div id="oracle-results" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+              <!-- Populated dynamically on load & click -->
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: PTXAS Zero-Spill Receipts & Scaling Calculator -->
+        <div class="lg:col-span-5 glass-panel rounded-3xl p-5 sm:p-6 flex flex-col justify-between space-y-5">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono uppercase tracking-wider text-sky-300 font-semibold">PTXAS Zero-Spill Kernel Receipts</span>
+              <span class="text-[11px] font-mono text-slate-400">Target: sm_86</span>
+            </div>
+
+            <!-- Kernel Cards -->
+            <div class="space-y-2.5 font-mono text-xs">
+              <div class="p-3.5 rounded-2xl bg-obsidian-950/90 border border-slate-800">
+                <div class="flex justify-between text-sky-300 font-semibold">
+                  <span>su2_holonomy_scan_sm86.cu</span>
+                  <span class="text-slate-400">90.9 KB</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                  <div class="text-emerald-300">0 B spill load</div>
+                  <div class="text-emerald-300">0 B spill store</div>
+                  <div class="text-slate-300">Warp Scan 32</div>
+                </div>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-obsidian-950/90 border border-slate-800">
+                <div class="flex justify-between text-purple-300 font-semibold">
+                  <span>holosphere_h256_chunk32_sm86.cu</span>
+                  <span class="text-slate-400">84.4 KB</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                  <div class="text-emerald-300">0 B stack frame</div>
+                  <div class="text-emerald-300">ptxas s117 ✓</div>
+                  <div class="text-slate-300">H=256 Fused</div>
+                </div>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-obsidian-950/90 border border-slate-800">
+                <div class="flex justify-between text-amber-300 font-semibold">
+                  <span>holosphere_v3_frontier_sm86.cu</span>
+                  <span class="text-slate-400">40.1 KB</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                  <div class="text-emerald-300">0 B spill store</div>
+                  <div class="text-emerald-300">ptxas v3 ✓</div>
+                  <div class="text-slate-300">Razor 4B ABI</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Inference Context-Length Memory Comparator -->
+          <div class="rounded-2xl bg-slate-900/75 border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center justify-between text-xs font-mono">
+              <label for="slider-ctx" class="text-white font-semibold">Context Length N:</label>
+              <span id="val-ctx" class="text-sky-300 font-bold">131,072 tokens</span>
+            </div>
+            <input id="slider-ctx" type="range" min="10" max="20" step="1" value="17" class="w-full" />
+
+            <div class="space-y-2.5 pt-1 text-xs font-mono">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-400">Dense Attention KV-Cache (24L, H=256, FP16)</span>
+                  <span id="mem-kv" class="text-rose-300">3,072.0 MB</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div id="bar-kv" class="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-200" style="width: 68%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="text-slate-300">HoloSphere Holonomic State (H=256, S³ + Razor)</span>
+                  <span id="mem-holo" class="text-emerald-300 font-semibold">0.098 MB (O(1))</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div class="h-full bg-emerald-400 w-1.5"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECTION 5: INTERACTIVE REPOSITORY ATLAS (MAPPED TO ZIP CONTENTS)      -->
+    <!-- ===================================================================== -->
+    <section id="atlas" class="scroll-mt-20 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <div class="text-xs font-mono uppercase tracking-widest text-sky-400 mb-1">holosphere-main.zip · 85 Entries · 1.18 MB Source</div>
+          <h2 class="font-display text-2xl sm:text-3xl font-bold text-white">
+            Interactive Repository Architecture Atlas
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Filter the repository modules to see how geometry, PyTorch/Triton/CUDA bridges, models, and Lean 4 proofs interlock.
+          </p>
+        </div>
+
+        <!-- Subsystem Filter Buttons -->
+        <div class="flex flex-wrap gap-1.5" id="atlas-filters">
+          <button type="button" data-filter="all" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-sky-500/20 text-sky-200 border border-sky-400/40">All</button>
+          <button type="button" data-filter="geometry" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800">geometry/</button>
+          <button type="button" data-filter="kernels" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800">kernels/csrc/</button>
+          <button type="button" data-filter="models" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800">models/</button>
+          <button type="button" data-filter="lean" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800">lean/</button>
+          <button type="button" data-filter="research" class="atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800">research &amp; tests</button>
+        </div>
+      </div>
+
+      <div id="atlas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <!-- Populated dynamically from exact holosphere-main.zip metadata -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-obsidian-950/90 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-400">
+      <div class="flex items-center gap-2.5">
+        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+        <span class="text-slate-200 font-semibold">holosphere-main</span>
+        <span>· End-to-End Inference Optimization via Frontier Mathematics</span>
+      </div>
+      <div>
+        Ready for GitHub Pages · Single-File Zero-Dependency Build (<code class="text-sky-300">index.html</code>)
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- HOLOSPHERE MATHEMATICAL ENGINE, WEBGL RENDERER, & INTERACTIVE LOGIC     -->
+  <!-- ======================================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---------------------------------------------------------------------
+       * 1. NON-BLOCKING TOAST & CLIPBOARD HELPER (NO alert() EVER)
+       * -------------------------------------------------------------------*/
+      function showToast(message, accent) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        const borderClass = accent === 'emerald'
+          ? 'border-emerald-400/50 text-emerald-200'
+          : accent === 'rose'
+            ? 'border-rose-400/50 text-rose-200'
+            : 'border-sky-400/50 text-sky-200';
+        el.className = 'glass-panel px-4 py-2.5 rounded-xl text-xs font-mono border shadow-xl transition-all duration-300 ' + borderClass;
+        el.textContent = message;
+        container.appendChild(el);
+        setTimeout(function () {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(8px)';
+          setTimeout(function () {
+            if (el.parentNode) el.parentNode.removeChild(el);
+          }, 300);
+        }, 2400);
+      }
+
+      function copyTextSafe(text, label) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('Copied: ' + (label || text), 'emerald');
+        } catch (err) {
+          showToast('Unable to copy automatically in this frame', 'sky');
+        }
+      }
+
+      /* ---------------------------------------------------------------------
+       * 2. HOLOSPHERIC EXACT DIFFERENTIAL GEOMETRY LIBRARY (S³, HOPF, E₈)
+       * -------------------------------------------------------------------*/
+      const PI = Math.PI;
+      const TAU = Math.PI * 2;
+
+      // Exact Hopf lift: (theta ∈ [0,π], phi ∈ [0,2π), psi ∈ [0,2π)) -> unit spinor q = [w, x, y, z] ∈ S³
+      function hopf(theta, phi, psi) {
+        const ct = Math.cos(theta * 0.5);
+        const st = Math.sin(theta * 0.5);
+        const a = psi + phi * 0.5;
+        const b = psi - phi * 0.5;
+        return [
+          ct * Math.cos(a),
+          ct * Math.sin(a),
+          st * Math.cos(b),
+          st * Math.sin(b)
+        ];
+      }
+
+      // Inverse Hopf map π: S³ -> S² Bloch base vector [nx, ny, nz]
+      function hopfProjectS2(q) {
+        const w = q[0], x = q[1], y = q[2], z = q[3];
+        // z0 = w + i x, z1 = y + i z => 2 z0 conj(z1) = 2(wy + xz) + 2i(xy - wz)
+        return [
+          2 * (w * y + x * z),
+          2 * (x * y - w * z),
+          (w * w + x * x) - (y * y + z * z)
+        ];
+      }
+
+      // Stereographic projection S³ -> ℝ³ with pole-compression α ∈ (0, 0.95) for smooth bounded framing
+      function stereo(q, alpha) {
+        const a = (alpha === undefined) ? 0.78 : Math.min(0.95, Math.max(0.15, alpha));
+        const denom = Math.max(0.045, 1.0 - a * q[3]);
+        const scale = Math.sqrt(Math.max(0.08, 1.0 - a * a)) * 1.45;
+        return [
+          (q[0] / denom) * scale,
+          (q[1] / denom) * scale,
+          (q[2] / denom) * scale
+        ];
+      }
+
+      // Beltrami-Klein projective disk coordinate inside unit ball 𝔹³ (maps S³ geodesics to straight chords)
+      function beltrami(q) {
+        const sign = q[0] >= 0 ? 1.0 : -1.0;
+        const denom = Math.max(0.28, Math.abs(q[0]) + 0.32);
+        return [
+          (sign * q[1] / denom) * 1.35,
+          (sign * q[2] / denom) * 1.35,
+          (sign * q[3] / denom) * 1.35
+        ];
+      }
+
+      // Rational Cayley map: 𝔰𝔲(2) vector [wx, wy, wz] -> exact unit quaternion in SU(2) with ZERO trig!
+      function cayley(wx, wy, wz) {
+        const r2 = wx * wx + wy * wy + wz * wz;
+        const inv = 1.0 / (1.0 + r2);
+        return [
+          (1.0 - r2) * inv,
+          2.0 * wx * inv,
+          2.0 * wy * inv,
+          2.0 * wz * inv
+        ];
+      }
+
+      // Quaternion / SU(2) multiplication a ⊗ b
+      function su2Mul(a, b) {
+        return [
+          a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+          a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+          a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+          a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+        ];
+      }
+
+      function su2Conj(a) {
+        return [a[0], -a[1], -a[2], -a[3]];
+      }
+
+      function su2Norm(a) {
+        return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2] + a[3] * a[3]);
+      }
+
+      function su2Normalize(a) {
+        const n = su2Norm(a) || 1.0;
+        return [a[0] / n, a[1] / n, a[2] / n, a[3] / n];
+      }
+
+      // Exponential map exp((angle/2) * (nx i + ny j + nz k)) ∈ SU(2)
+      function su2Exp(nx, ny, nz, angle) {
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+        const half = angle * 0.5;
+        const s = Math.sin(half) / len;
+        return [Math.cos(half), nx * s, ny * s, nz * s];
+      }
+
+      // Barrington group commutator [a, b] = a ⊗ b ⊗ a† ⊗ b† ∈ SU(2)
+      function commutator(a, b) {
+        return su2Mul(su2Mul(a, b), su2Mul(su2Conj(a), su2Conj(b)));
+      }
+
+      // Spherical Linear Geodesic Interpolation on S³
+      function slerp(a, b, t) {
+        let bx = b[0], by = b[1], bz = b[2], bw = b[3];
+        let dot = a[0] * bx + a[1] * by + a[2] * bz + a[3] * bw;
+        if (dot < 0.0) {
+          dot = -dot;
+          bx = -bx; by = -by; bz = -bz; bw = -bw;
+        }
+        if (dot > 0.9995) {
+          return su2Normalize([
+            a[0] + t * (bx - a[0]),
+            a[1] + t * (by - a[1]),
+            a[2] + t * (bz - a[2]),
+            a[3] + t * (bw - a[3])
+          ]);
+        }
+        const theta0 = Math.acos(Math.min(1.0, dot));
+        const sin0 = Math.sin(theta0);
+        const s0 = Math.sin((1.0 - t) * theta0) / sin0;
+        const s1 = Math.sin(t * theta0) / sin0;
+        return [
+          s0 * a[0] + s1 * bx,
+          s0 * a[1] + s1 * by,
+          s0 * a[2] + s1 * bz,
+          s0 * a[3] + s1 * bw
+        ];
+      }
+
+      // Antipodal Bingham unnormalized density weight on S³ / {±1}
+      function binghamWeight(q, l1, l2, l3) {
+        return Math.exp(l1 * q[1] * q[1] + l2 * q[2] * q[2] + l3 * q[3] * q[3]);
+      }
+
+      // Precompute ALL 240 Exact Minimal Roots of the E₈ Gosset Lattice in ℝ⁸
+      const E8_ROOTS = (function generateE8Roots() {
+        const roots = [];
+        const invSqrt2 = 1.0 / Math.sqrt(2.0);
+        // 112 roots of D8: (±1, ±1, 0, 0, 0, 0, 0, 0) permutations
+        for (let i = 0; i < 8; i++) {
+          for (let j = i + 1; j < 8; j++) {
+            for (let s1 = -1; s1 <= 1; s1 += 2) {
+              for (let s2 = -1; s2 <= 1; s2 += 2) {
+                const v = [0, 0, 0, 0, 0, 0, 0, 0];
+                v[i] = s1 * invSqrt2;
+                v[j] = s2 * invSqrt2;
+                roots.push(v);
+              }
+            }
+          }
+        }
+        // 128 half-spinor roots: (±1/2)^8 with even number of minus signs
+        for (let mask = 0; mask < 256; mask++) {
+          let negs = 0;
+          const v = new Array(8);
+          for (let b = 0; b < 8; b++) {
+            if ((mask >> b) & 1) {
+              negs++;
+              v[b] = -0.5 * invSqrt2;
+            } else {
+              v[b] = 0.5 * invSqrt2;
+            }
+          }
+          if (negs % 2 === 0) roots.push(v);
+        }
+        return roots; // 112 + 128 = 240 exact roots!
+      })();
+
+      // Project an E₈ root ∈ ℝ⁸ into a unit S³ spinor via invariant Coxeter-quaternionic planes
+      function e8Root(idx, rotAngle) {
+        const r = E8_ROOTS[((idx % 240) + 240) % 240];
+        const c = Math.cos(rotAngle || 0.0);
+        const s = Math.sin(rotAngle || 0.0);
+        let q0 = 0, q1 = 0, q2 = 0, q3 = 0;
+        for (let k = 0; k < 8; k++) {
+          const a1 = (k * PI) / 8.0 + 0.19;
+          const a2 = (k * 7.0 * PI) / 8.0 + 0.41;
+          q0 += r[k] * Math.cos(a1);
+          q1 += r[k] * Math.sin(a1);
+          q2 += r[k] * Math.cos(a2);
+          q3 += r[k] * Math.sin(a2);
+        }
+        // Apply 4D isoclinic spinor rotation
+        const w = q0 * c - q3 * s;
+        const z = q0 * s + q3 * c;
+        return su2Normalize([w, q1, q2, z]);
+      }
+
+      /* ---------------------------------------------------------------------
+       * 3. INTERACTIVE S² BLOCH BASE SPHERE CONTROLLER STATE
+       * -------------------------------------------------------------------*/
+      const basePoints = [
+        { theta: 1.05, phi: 0.40, color: '#fbbf24', hue: 0.12 },
+        { theta: 1.55, phi: 2.55, color: '#38bdf8', hue: 0.55 },
+        { theta: 2.05, phi: 4.65, color: '#f472b6', hue: 0.90 }
+      ];
+      let draggingBaseIdx = -1;
+
+      /* ---------------------------------------------------------------------
+       * 4. FIVE CURATED HOLOSCRIPT MATHEMATICAL KERNEL PRESETS
+       * -------------------------------------------------------------------*/
+      const PRESETS = {
+        hopf: {
+          filename: '01_hopf_villarceau.holo',
+          hudTitle: 'S¹ ↪ S³ → S² Hopf Fibration',
+          badge: 'holosphere/geometry/hopf.py',
+          latex: '\\pi^{-1}(\\theta,\\phi) = \\left(\\cos\\tfrac{\\theta}{2}e^{i(\\psi+\\phi/2)},\\; \\sin\\tfrac{\\theta}{2}e^{i(\\psi-\\phi/2)}\\right) \\in S^3',
+          caption: 'Every point on the Bloch base sphere S² lifts to a great circle on S³; stereographic projection reveals mutually linked Villarceau circles (Hopf invariant ℒ = +1). Try dragging nodes on the S² Bloch Pad!',
+          sliders: {
+            alpha: { label: 'Pole Compression α', min: 0.35, max: 0.92, val: 0.78 },
+            p1: { label: 'Torus Latitude θ₀', min: 0.25, max: 2.85, val: 1.22 },
+            p2: { label: 'Lobe Winding k', min: 0.0, max: 6.0, val: 3.0 },
+            p3: { label: 'Wave Modulation β', min: 0.0, max: 0.95, val: 0.45 }
+          },
+          code:
+`// Fibers 0..2 lock directly onto your interactive S² Bloch Pad!
+if (i < 3) {
+  const bp = basePoints[i];
+  const q = hopf(bp.theta, bp.phi + t * 0.22, s * TAU);
+  return { pos: stereo(q, params.alpha), q, hue: bp.hue, radius: 0.046 };
+}
+
+// Foliated Clifford Torus + k-lobed Villarceau wave on S²
+const u = (i - 3) / (N - 3);
+const phi = u * TAU + t * 0.24;
+const theta = params.p1 + params.p3 * 0.65 * sin(params.p2 * u * TAU + t * 0.7);
+const q = hopf(theta, phi, s * TAU);
+
+return {
+  pos: stereo(q, params.alpha),
+  q: q,
+  hue: (0.52 + 0.34 * u + 0.08 * sin(theta)) % 1.0,
+  radius: 0.024
+};`
+        },
+
+        barrington: {
+          filename: '02_barrington_su2_commutator.holo',
+          hudTitle: 'Barrington NC¹ Spinor Commutators [U, V] ∈ SU(2)',
+          badge: 'holosphere/barrington_su2.py · HoloSphereSpinorBarrington.lean',
+          latex: '[U, V] = U V U^{\\dagger} V^{\\dagger} \\neq I \\implies \\mathsf{BWP}(\\mathrm{SU}(2)) = \\mathsf{NC}^1',
+          caption: 'Non-abelian spinor commutators unlock logarithmic-depth NC¹ state tracking. Pull "Axis Non-Commutativity" down to 0.0 to watch the manifold collapse to trivial abelian TC⁰!',
+          sliders: {
+            alpha: { label: 'Pole Compression α', min: 0.35, max: 0.90, val: 0.72 },
+            p1: { label: 'Spinor Angle θ_U', min: 0.2, max: 3.10, val: 1.85 },
+            p2: { label: 'Spinor Angle θ_V', min: 0.2, max: 3.10, val: 2.10 },
+            p3: { label: 'Axis Non-Commutativity', min: 0.0, max: 1.0, val: 0.92 }
+          },
+          code:
+`// Non-commuting SU(2) generators U(i) and V(s)
+const u = i / N;
+const phase = u * TAU + t * 0.35;
+const sep = params.p3 * (PI * 0.5); // 0 =elian, π/2 = orthogonal axes
+
+const U = su2Exp(cos(phase), sin(phase), 0.25, params.p1);
+const V = su2Exp(cos(phase + sep), sin(phase + sep), -0.35 * params.p3, params.p2 * sin(s * TAU));
+
+// Iterated Barrington commutator [U, V] braided along fiber s
+const comm = commutator(U, V);
+const transport = su2Exp(0, 0, 1, s * TAU);
+const q = su2Mul(comm, su2Mul(U, transport));
+
+return {
+  pos: stereo(q, params.alpha),
+  q: q,
+  hue: (0.74 + 0.22 * params.p3 * sin(s * TAU + u * TAU)) % 1.0,
+  radius: i < 2 ? 0.042 : 0.025
+};`
+        },
+
+        beltrami: {
+          filename: '03_beltrami_cayley_geodesics.holo',
+          hudTitle: 'Beltrami Chordal Linearization & Cayley Map',
+          badge: 'holosphere/geometry/beltrami.py · darboux.py',
+          latex: '\\operatorname{Cay}(\\omega) = \\frac{1 - \\|\\omega\\|^2 + 2\\omega}{1 + \\|\\omega\\|^2} \\in S^3, \\quad \\mathbf{b}(q) = \\frac{\\mathbf{q}_{1:3}}{|q_0|}',
+          caption: 'Drag "Beltrami Blend β" from 0 → 1 to continuously morph curved S³ stereographic arcs into exact straight projective chords inside the Beltrami–Klein unit ball 𝔹³!',
+          sliders: {
+            alpha: { label: 'Stereo Scale α', min: 0.35, max: 0.88, val: 0.68 },
+            p1: { label: 'Cayley Generator ‖ω‖', min: 0.25, max: 2.40, val: 1.15 },
+            p2: { label: 'Geodesic Twist m', min: 1.0, max: 6.0, val: 2.0 },
+            p3: { label: 'Beltrami Chord Blend β', min: 0.0, max: 1.0, val: 0.72 }
+          },
+          code:
+`// Rational Cayley endpoints on S³ (zero trig evaluation!)
+const u = i / N;
+const a1 = u * TAU + t * 0.22;
+const a2 = a1 + PI * 0.68 + 0.35 * sin(params.p2 * u * TAU);
+const r = params.p1;
+
+const qStart = cayley(r * cos(a1), r * sin(a1), 0.55 * sin(2 * a1));
+const qEnd   = cayley(r * cos(a2), r * sin(a2), -0.55 * cos(2 * a2));
+
+// Geodesic arc on S³ interpolated along s ∈ [0, 1]
+const tau = 0.5 - 0.5 * cos(s * TAU);
+const q = slerp(qStart, qEnd, tau);
+
+// Blend between Stereographic S³ curve (β=0) and straight Beltrami chord (β=1)
+const pS = stereo(q, params.alpha);
+const pB = beltrami(q);
+const b = params.p3;
+const pos = [
+  (1 - b) * pS[0] + b * pB[0],
+  (1 - b) * pS[1] + b * pB[1],
+  (1 - b) * pS[2] + b * pB[2]
+];
+
+return { pos, q, hue: (0.95 - 0.42 * b + 0.18 * u) % 1.0, radius: i === 0 ? 0.044 : 0.023 };`
+        },
+
+        e8shell: {
+          filename: '04_e8_bingham_weft_shell.holo',
+          hudTitle: 'E₈ 240-Root Null-Modem & Bingham Weft Shell',
+          badge: 'models/nullmodem_e8.py · weft_shell.py · geometry/bingham.py',
+          latex: 'p(\\mathbf{x}; \\Lambda, V) \\propto \\exp(\\mathbf{x}^\\top V \\Lambda V^\\top \\mathbf{x}), \\quad |\\Phi(E_8)| = 240',
+          caption: 'Projects minimal vectors of the 8-dimensional E₈ Gosset lattice into dual S³ spinor shells, modulated in thickness and luminescence by an antipodal Bingham concentration field.',
+          sliders: {
+            alpha: { label: 'Shell Projection α', min: 0.35, max: 0.88, val: 0.70 },
+            p1: { label: 'Bingham Anisotropy λ₁', min: 0.0, max: 2.5, val: 1.45 },
+            p2: { label: 'Coxeter Stride', min: 1.0, max: 7.0, val: 5.0 },
+            p3: { label: '4D Isoclinic Spin', min: 0.0, max: 1.0, val: 0.55 }
+          },
+          code:
+`// Sample paired roots from the exact 240 minimal vectors of E₈
+const idxA = (i * 7) % 240;
+const idxB = (idxA + Math.round(params.p2) * 19) % 240;
+const spin = t * (0.15 + 0.55 * params.p3);
+
+const rA = e8Root(idxA, spin);
+const rB = e8Root(idxB, -spin * 0.7);
+
+// Weft-shell great-circle bridge across S³
+const wave = 0.5 + 0.5 * sin(s * TAU);
+const qBase = slerp(rA, rB, wave);
+const q = su2Mul(qBase, su2Exp(rA[1], rB[2], rA[3], s * TAU));
+
+// Antipodal Bingham directional density sculpts fiber radius & glow
+const bw = binghamWeight(q, params.p1, -0.6 * params.p1, 0.35 * params.p1);
+const normW = min(1.8, bw * 0.42);
+
+return {
+  pos: stereo(q, params.alpha),
+  q: q,
+  hue: (0.36 + 0.26 * (normW - 0.4)) % 1.0,
+  radius: 0.015 + 0.022 * normW
+};`
+        },
+
+        warpscan: {
+          filename: '05_chunk32_holonomy_warp.holo',
+          hudTitle: 'Chunk-32 GPU Warp Parallel Prefix Trajectory',
+          badge: 'kernels/csrc/holosphere_h256_chunk32_sm86.cu',
+          latex: 'Q_{0:k} = \\bigotimes_{j=0}^{k} \\exp\\!\\left(\\tfrac{1}{2}\\Delta_j \\mathbf{\\Omega}_j\\right) \\in \\mathrm{SU}(2), \\quad k \\in \\{0,\\dots,31\\}',
+          caption: 'Visualizes 32 discrete warp-lane spinor prefix states cohering across 5 parallel __shfl_up_sync reduction passes while preserving exact unit norm ‖Q_k‖ = 1.',
+          sliders: {
+            alpha: { label: 'Pole Compression α', min: 0.35, max: 0.90, val: 0.74 },
+            p1: { label: 'Token Step Curvature', min: 0.15, max: 1.80, val: 0.78 },
+            p2: { label: 'Warp Stride Harmonic', min: 1.0, max: 5.0, val: 3.0 },
+            p3: { label: 'Fiber Phase Twist', min: 0.0, max: 1.0, val: 0.60 }
+          },
+          code:
+`// Map fiber index onto the 32 lanes of an sm_86 GPU warp
+const lane = i % 32;
+const u = lane / 32;
+
+// Parallel prefix holonomy state Q_{0:lane}
+const ax = cos(u * TAU * params.p2 + t * 0.3);
+const ay = sin(u * TAU * params.p2 - t * 0.25);
+const az = cos(u * PI * 2.0);
+const Q_lane = su2Exp(ax, ay, az, (lane + 1) * params.p1 * 0.28);
+
+// Transport fiber phase around the accumulated warp prefix spinor
+const fiberSpin = su2Exp(0, params.p3, 1 - params.p3 * 0.5, s * TAU);
+const q = su2Mul(Q_lane, fiberSpin);
+
+return {
+  pos: stereo(q, params.alpha),
+  q: q,
+  hue: (0.55 + 0.38 * u) % 1.0,
+  radius: (lane % 8 === 0) ? 0.038 : 0.021
+};`
+        }
+      };
+
+      /* ---------------------------------------------------------------------
+       * 5. HOLOSCRIPT SANDBOX COMPILER
+       * -------------------------------------------------------------------*/
+      let activeSampleFn = null;
+      let currentPresetKey = 'hopf';
+
+      function compileHoloScript(sourceCode) {
+        const errBanner = document.getElementById('script-error-banner');
+        const statusBadge = document.getElementById('compile-status');
+        try {
+          // Construct sandboxed evaluator with math & holosphere stdlib in scope
+          const factory = new Function(
+            'std',
+            '"use strict";\n' +
+            'const { PI, TAU, sin, cos, tan, asin, acos, atan2, sqrt, exp, abs, pow, min, max, tanh, ' +
+            'hopf, stereo, beltrami, cayley, su2Mul, su2Conj, su2Exp, commutator, slerp, e8Root, binghamWeight, basePoints } = std;\n' +
+            'return function sampleFiber(i, N, s, t, params) {\n' +
+            sourceCode + '\n' +
+            '};'
+          );
+
+          const candidateFn = factory({
+            PI: PI,
+            TAU: TAU,
+            sin: Math.sin,
+            cos: Math.cos,
+            tan: Math.tan,
+            asin: Math.asin,
+            acos: Math.acos,
+            atan2: Math.atan2,
+            sqrt: Math.sqrt,
+            exp: Math.exp,
+            abs: Math.abs,
+            pow: Math.pow,
+            min: Math.min,
+            max: Math.max,
+            tanh: Math.tanh,
+            hopf: hopf,
+            stereo: stereo,
+            beltrami: beltrami,
+            cayley: cayley,
+            su2Mul: su2Mul,
+            su2Conj: su2Conj,
+            su2Exp: su2Exp,
+            commutator: commutator,
+            slerp: slerp,
+            e8Root: e8Root,
+            binghamWeight: binghamWeight,
+            basePoints: basePoints
+          });
+
+          // Dry-run validation on 1 point to catch runtime NaNs or missing returns before swapping
+          const testOut = candidateFn(0, 32, 0.25, 0.0, getSliderParams());
+          const parsed = normalizeSampleOutput(testOut, 0, 32, 0.78);
+          if (!isFinite(parsed.pos[0]) || !isFinite(parsed.pos[1]) || !isFinite(parsed.pos[2])) {
+            throw new Error('Expression evaluated to non-finite coordinates (NaN/Infinity).');
+          }
+
+          activeSampleFn = candidateFn;
+          if (errBanner) errBanner.classList.add('hidden');
+          if (statusBadge) {
+            statusBadge.textContent = 'Compiled · Live 60 FPS';
+            statusBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+          }
+          return true;
+        } catch (err) {
+          if (errBanner) {
+            errBanner.textContent = 'HoloScript Diagnostic: ' + err.message;
+            errBanner.classList.remove('hidden');
+          }
+          if (statusBadge) {
+            statusBadge.textContent = 'Syntax Hold (Last Valid Active)';
+            statusBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30';
+          }
+          return false;
+        }
+      }
+
+      // Normalize return value from sampleFiber (supports full object, 3D array, or 4D quaternion!)
+      function normalizeSampleOutput(out, i, N, alpha) {
+        if (Array.isArray(out)) {
+          if (out.length === 4) {
+            const q = su2Normalize(out);
+            return { pos: stereo(q, alpha), q: q, hue: (i / N), radius: 0.025 };
+          }
+          return {
+            pos: [out[0] || 0, out[1] || 0, out[2] || 0],
+            q: [1, 0, 0, 0],
+            hue: (i / N),
+            radius: 0.025
+          };
+        }
+        if (out && Array.isArray(out.pos)) {
+          return {
+            pos: out.pos,
+            q: Array.isArray(out.q) ? out.q : [1, 0, 0, 0],
+            hue: typeof out.hue === 'number' ? out.hue : (i / N),
+            radius: typeof out.radius === 'number' ? out.radius : 0.025
+          };
+        }
+        return { pos: [0, 0, 0], q: [1, 0, 0, 0], hue: 0.55, radius: 0.025 };
+      }
+
+      function getSliderParams() {
+        return {
+          alpha: parseFloat(document.getElementById('slider-alpha').value),
+          p1: parseFloat(document.getElementById('slider-p1').value),
+          p2: parseFloat(document.getElementById('slider-p2').value),
+          p3: parseFloat(document.getElementById('slider-p3').value)
+        };
+      }
+
+      // HSL -> RGB helper (allocation-free write)
+      function hslToRgb(h, s, l, out, offset) {
+        const hh = ((h % 1.0) + 1.0) % 1.0;
+        const c = (1.0 - Math.abs(2.0 * l - 1.0)) * s;
+        const x = c * (1.0 - Math.abs(((hh * 6.0) % 2.0) - 1.0));
+        const m = l - c * 0.5;
+        let r = 0, g = 0, b = 0;
+        const seg = Math.floor(hh * 6.0);
+        if (seg === 0) { r = c; g = x; b = 0; }
+        else if (seg === 1) { r = x; g = c; b = 0; }
+        else if (seg === 2) { r = 0; g = c; b = x; }
+        else if (seg === 3) { r = 0; g = x; b = c; }
+        else if (seg === 4) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+        out[offset] = r + m;
+        out[offset + 1] = g + m;
+        out[offset + 2] = b + m;
+      }
+
+      /* ---------------------------------------------------------------------
+       * 6. THREE.JS ZERO-ALLOCATION VOLUMETRIC FIBER + PHOTON + DARBOUX ENGINE
+       * -------------------------------------------------------------------*/
+      const NUM_FIBERS = 34;
+      const SEGMENTS = 84;       // Longitudinal samples per closed/open fiber
+      const RADIAL_SIDES = 6;    // Smooth hexagonal volumetric tube per fiber
+      const PHOTONS_PER_FIBER = 24;
+
+      let scene, camera, renderer;
+      let tubeGeometry, tubePosAttr, tubeNormAttr, tubeColAttr;
+      let photonGeometry, photonPosAttr, photonColAttr;
+      let darbouxGroup, arrowT, arrowBg, arrowN, darbouxBead;
+      let refShellGroup;
+
+      // Camera spherical orbit coordinates
+      let camTheta = 0.68;
+      let camPhi = 1.18;
+      let camRadius = 5.35;
+      let targetTheta = 0.68;
+      let targetPhi = 1.18;
+      let targetRadius = 5.35;
+      let isPointerDown = false;
+      let prevPointerX = 0;
+      let prevPointerY = 0;
+      let simPaused = false;
+      let showDarboux = true;
+      let simTime = 0.0;
+
+      // Reusable scratch arrays for zero GC during 60 FPS mesh updates
+      const centerPts = new Float32Array((SEGMENTS + 1) * 3);
+      const tangents = new Float32Array((SEGMENTS + 1) * 3);
+
+      // Generate procedural soft-glow sprite texture in memory (zero external URLs!)
+      function createGlowSpriteTexture() {
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const ctx = c.getContext('2d');
+        const grad = ctx.createRadialGradient(32, 32, 1, 32, 32, 31);
+        grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+        grad.addColorStop(0.28, 'rgba(186, 230, 253, 0.85)');
+        grad.addColorStop(0.65, 'rgba(56, 189, 248, 0.22)');
+        grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+        const tex = new THREE.CanvasTexture(c);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+      function showThreeFallback(message) {
+        const container = document.getElementById('webgl-container');
+        if (!container) return;
+        container.replaceChildren();
+        container.classList.add('flex', 'items-center', 'justify-center');
+        const notice = document.createElement('div');
+        notice.className = 'max-w-md rounded-2xl border border-slate-700 bg-slate-900/80 p-6 text-center text-sm leading-relaxed text-slate-300';
+        notice.setAttribute('role', 'status');
+        notice.textContent = message;
+        container.appendChild(notice);
+      }
+
+      function initThreeStage() {
+        const container = document.getElementById('webgl-container');
+        if (!container) return;
+        if (typeof THREE === 'undefined') {
+          showThreeFallback('The 3D renderer could not be loaded. HoloScript compilation, warp scans, and Lean checks remain available.');
+          return;
+        }
+        const w = container.clientWidth || 720;
+        const h = container.clientHeight || 560;
+
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(44, w / h, 0.1, 100);
+
+        try {
+          renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+        } catch (err) {
+          showThreeFallback('3D rendering is unavailable in this browser. HoloScript compilation, warp scans, and Lean checks remain available.');
+          return;
+        }
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(w, h);
+        container.appendChild(renderer.domElement);
+
+        // Studio Lighting for Volumetric Specular Depth
+        const ambient = new THREE.AmbientLight(0xdbeafe, 0.62);
+        scene.add(ambient);
+
+        const keyLight = new THREE.DirectionalLight(0x7dd3fc, 1.15);
+        keyLight.position.set(5, 7, 6);
+        scene.add(keyLight);
+
+        const rimLight = new THREE.DirectionalLight(0xc084fc, 0.95);
+        rimLight.position.set(-6, -4, -5);
+        scene.add(rimLight);
+
+        // Subtle Reference Unit Sphere / Beltrami Boundary Cage
+        refShellGroup = new THREE.Group();
+        const ringMat = new THREE.LineBasicMaterial({
+          color: 0x334155,
+          transparent: true,
+          opacity: 0.34
+        });
+        for (let rIdx = 0; rIdx < 3; rIdx++) {
+          const pts = [];
+          const rad = 1.35;
+          for (let k = 0; k <= 96; k++) {
+            const ang = (k / 96) * TAU;
+            if (rIdx === 0) pts.push(new THREE.Vector3(rad * Math.cos(ang), rad * Math.sin(ang), 0));
+            else if (rIdx === 1) pts.push(new THREE.Vector3(rad * Math.cos(ang), 0, rad * Math.sin(ang)));
+            else pts.push(new THREE.Vector3(0, rad * Math.cos(ang), rad * Math.sin(ang)));
+          }
+          const lg = new THREE.BufferGeometry().setFromPoints(pts);
+          refShellGroup.add(new THREE.Line(lg, ringMat));
+        }
+        scene.add(refShellGroup);
+
+        // Pre-allocate Unified Dynamic Volumetric Tube Mesh for all NUM_FIBERS
+        const vertsPerFiber = (SEGMENTS + 1) * RADIAL_SIDES;
+        const totalVerts = NUM_FIBERS * vertsPerFiber;
+        const quadsPerFiber = SEGMENTS * RADIAL_SIDES;
+        const totalIndices = NUM_FIBERS * quadsPerFiber * 6;
+
+        const positions = new Float32Array(totalVerts * 3);
+        const normals = new Float32Array(totalVerts * 3);
+        const colors = new Float32Array(totalVerts * 3);
+        const indices = new Uint32Array(totalIndices);
+
+        let iPtr = 0;
+        for (let f = 0; f < NUM_FIBERS; f++) {
+          const baseV = f * vertsPerFiber;
+          for (let s = 0; s < SEGMENTS; s++) {
+            for (let r = 0; r < RADIAL_SIDES; r++) {
+              const rNext = (r + 1) % RADIAL_SIDES;
+              const v00 = baseV + s * RADIAL_SIDES + r;
+              const v01 = baseV + s * RADIAL_SIDES + rNext;
+              const v10 = baseV + (s + 1) * RADIAL_SIDES + r;
+              const v11 = baseV + (s + 1) * RADIAL_SIDES + rNext;
+
+              indices[iPtr++] = v00;
+              indices[iPtr++] = v10;
+              indices[iPtr++] = v11;
+              indices[iPtr++] = v00;
+              indices[iPtr++] = v11;
+              indices[iPtr++] = v01;
+            }
+          }
+        }
+
+        tubeGeometry = new THREE.BufferGeometry();
+        tubePosAttr = new THREE.BufferAttribute(positions, 3);
+        tubeNormAttr = new THREE.BufferAttribute(normals, 3);
+        tubeColAttr = new THREE.BufferAttribute(colors, 3);
+        tubePosAttr.setUsage(THREE.DynamicDrawUsage);
+        tubeNormAttr.setUsage(THREE.DynamicDrawUsage);
+        tubeColAttr.setUsage(THREE.DynamicDrawUsage);
+
+        tubeGeometry.setAttribute('position', tubePosAttr);
+        tubeGeometry.setAttribute('normal', tubeNormAttr);
+        tubeGeometry.setAttribute('color', tubeColAttr);
+        tubeGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+        const tubeMaterial = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.26,
+          metalness: 0.35,
+          transparent: true,
+          opacity: 0.92
+        });
+        const tubeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+        tubeMesh.frustumCulled = false;
+        scene.add(tubeMesh);
+
+        // Pre-allocate Streaming Holonomy Spinor Photons
+        const totalPhotons = NUM_FIBERS * PHOTONS_PER_FIBER;
+        const photonPos = new Float32Array(totalPhotons * 3);
+        const photonCol = new Float32Array(totalPhotons * 3);
+
+        photonGeometry = new THREE.BufferGeometry();
+        photonPosAttr = new THREE.BufferAttribute(photonPos, 3);
+        photonColAttr = new THREE.BufferAttribute(photonCol, 3);
+        photonPosAttr.setUsage(THREE.DynamicDrawUsage);
+        photonColAttr.setUsage(THREE.DynamicDrawUsage);
+        photonGeometry.setAttribute('position', photonPosAttr);
+        photonGeometry.setAttribute('color', photonColAttr);
+
+        const photonMaterial = new THREE.PointsMaterial({
+          size: 0.14,
+          map: createGlowSpriteTexture(),
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.92,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const photonPoints = new THREE.Points(photonGeometry, photonMaterial);
+        photonPoints.frustumCulled = false;
+        scene.add(photonPoints);
+
+        // Darboux Moving Triad (T = Emerald, B_g = Rose, N = Gold)
+        darbouxGroup = new THREE.Group();
+        const origin = new THREE.Vector3(0, 0, 0);
+        arrowT = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), origin, 0.52, 0x34d399, 0.14, 0.08);
+        arrowBg = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), origin, 0.52, 0xfb7185, 0.14, 0.08);
+        arrowN = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), origin, 0.52, 0xfbbf24, 0.14, 0.08);
+        const beadGeo = new THREE.SphereGeometry(0.065, 16, 16);
+        const beadMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        darbouxBead = new THREE.Mesh(beadGeo, beadMat);
+        darbouxGroup.add(arrowT, arrowBg, arrowN, darbouxBead);
+        scene.add(darbouxGroup);
+
+        // Mouse & Touch Orbit + Zoom Interaction
+        const dom = renderer.domElement;
+        dom.addEventListener('mousedown', function (e) {
+          isPointerDown = true;
+          prevPointerX = e.clientX;
+          prevPointerY = e.clientY;
+        });
+        window.addEventListener('mouseup', function () {
+          isPointerDown = false;
+        });
+        window.addEventListener('mousemove', function (e) {
+          if (!isPointerDown) return;
+          const dx = e.clientX - prevPointerX;
+          const dy = e.clientY - prevPointerY;
+          prevPointerX = e.clientX;
+          prevPointerY = e.clientY;
+          targetTheta -= dx * 0.0075;
+          targetPhi = Math.max(0.18, Math.min(PI - 0.18, targetPhi - dy * 0.0075));
+        });
+
+        dom.addEventListener('wheel', function (e) {
+          e.preventDefault();
+          targetRadius = Math.max(2.4, Math.min(10.5, targetRadius + e.deltaY * 0.0035));
+        }, { passive: false });
+
+        // Touch drag & two-finger pinch zoom
+        let prevPinchDist = 0;
+        dom.addEventListener('touchstart', function (e) {
+          if (e.touches.length === 1) {
+            isPointerDown = true;
+            prevPointerX = e.touches[0].clientX;
+            prevPointerY = e.touches[0].clientY;
+          } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            prevPinchDist = Math.sqrt(dx * dx + dy * dy);
+          }
+        }, { passive: true });
+
+        dom.addEventListener('touchmove', function (e) {
+          if (e.touches.length === 1 && isPointerDown) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - prevPointerX;
+            const dy = e.touches[0].clientY - prevPointerY;
+            prevPointerX = e.touches[0].clientX;
+            prevPointerY = e.touches[0].clientY;
+            targetTheta -= dx * 0.008;
+            targetPhi = Math.max(0.18, Math.min(PI - 0.18, targetPhi - dy * 0.008));
+          } else if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (prevPinchDist > 0) {
+              targetRadius = Math.max(2.4, Math.min(10.5, targetRadius - (dist - prevPinchDist) * 0.015));
+            }
+            prevPinchDist = dist;
+          }
+        }, { passive: false });
+
+        dom.addEventListener('touchend', function () {
+          isPointerDown = false;
+          prevPinchDist = 0;
+        });
+
+        window.addEventListener('resize', handleResize);
+      }
+
+      function handleResize() {
+        const container = document.getElementById('webgl-container');
+        if (container && renderer && camera) {
+          const w = container.clientWidth || 640;
+          const h = container.clientHeight || 520;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+        drawS2Pad();
+        drawWarpScanCanvas();
+      }
+
+      // Update all 3D volumetric fibers, streaming photons, Darboux triad, and live telemetry
+      let hudFrameCounter = 0;
+      const radialCos = new Float32Array(RADIAL_SIDES);
+      const radialSin = new Float32Array(RADIAL_SIDES);
+      for (let r = 0; r < RADIAL_SIDES; r++) {
+        radialCos[r] = Math.cos((r / RADIAL_SIDES) * TAU);
+        radialSin[r] = Math.sin((r / RADIAL_SIDES) * TAU);
+      }
+
+      function updateManifoldGeometry(t) {
+        if (!activeSampleFn) return;
+        const params = getSliderParams();
+        const posArr = tubePosAttr.array;
+        const normArr = tubeNormAttr.array;
+        const colArr = tubeColAttr.array;
+        const pPosArr = photonPosAttr.array;
+        const pColArr = photonColAttr.array;
+
+        const vertsPerFiber = (SEGMENTS + 1) * RADIAL_SIDES;
+        let sampleQ0 = [1, 0, 0, 0];
+        let sampleQ1 = [1, 0, 0, 0];
+        let darbouxPos = [0, 0, 0];
+        let darbouxTan = [1, 0, 0];
+        let darbouxSurfN = [0, 0, 1];
+        let torsionEstimate = 0.0;
+
+        const darbouxSeg = Math.floor(((t * 0.22) % 1.0) * SEGMENTS);
+
+        for (let f = 0; f < NUM_FIBERS; f++) {
+          let fiberHue = 0.55;
+          let fiberRad = 0.024;
+
+          // Sample points along fiber s ∈ [0, 1]
+          for (let sIdx = 0; sIdx <= SEGMENTS; sIdx++) {
+            const s = sIdx / SEGMENTS;
+            let res;
+            try {
+              res = normalizeSampleOutput(activeSampleFn(f, NUM_FIBERS, s, t, params), f, NUM_FIBERS, params.alpha);
+            } catch (e) {
+              res = { pos: [0, 0, 0], q: [1, 0, 0, 0], hue: 0.55, radius: 0.024 };
+            }
+
+            // Clamp extreme coordinates gracefully so user math scripts never blow out the camera
+            const px = Math.max(-4.5, Math.min(4.5, res.pos[0] || 0));
+            const py = Math.max(-4.5, Math.min(4.5, res.pos[1] || 0));
+            const pz = Math.max(-4.5, Math.min(4.5, res.pos[2] || 0));
+
+            centerPts[sIdx * 3] = px;
+            centerPts[sIdx * 3 + 1] = py;
+            centerPts[sIdx * 3 + 2] = pz;
+
+            if (sIdx === 0) {
+              fiberHue = res.hue;
+              fiberRad = Math.max(0.008, Math.min(0.08, res.radius));
+              if (f === 0) sampleQ0 = res.q;
+              if (f === 5) sampleQ1 = res.q;
+            }
+          }
+
+          // Compute smooth central-difference unit tangents along fiber
+          for (let sIdx = 0; sIdx <= SEGMENTS; sIdx++) {
+            const prev = sIdx === 0 ? SEGMENTS - 1 : sIdx - 1;
+            const next = sIdx === SEGMENTS ? 1 : sIdx + 1;
+            let tx = centerPts[next * 3] - centerPts[prev * 3];
+            let ty = centerPts[next * 3 + 1] - centerPts[prev * 3 + 1];
+            let tz = centerPts[next * 3 + 2] - centerPts[prev * 3 + 2];
+            const tl = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1.0;
+            tangents[sIdx * 3] = tx / tl;
+            tangents[sIdx * 3 + 1] = ty / tl;
+            tangents[sIdx * 3 + 2] = tz / tl;
+          }
+
+          // Initialize parallel-transport frame normal (uVec, vVec) orthogonal to T_0
+          let tx0 = tangents[0], ty0 = tangents[1], tz0 = tangents[2];
+          let ax = Math.abs(tx0) < 0.85 ? 1.0 : 0.0;
+          let ay = Math.abs(tx0) < 0.85 ? 0.0 : 1.0;
+          let az = 0.0;
+          // u = normalize(T_0 × a)
+          let ux = ty0 * az - tz0 * ay;
+          let uy = tz0 * ax - tx0 * az;
+          let uz = tx0 * ay - ty0 * ax;
+          let ul = Math.sqrt(ux * ux + uy * uy + uz * uz) || 1.0;
+          ux /= ul; uy /= ul; uz /= ul;
+
+          const baseVertex = f * vertsPerFiber;
+          const isHighlighted = (currentPresetKey === 'hopf' && f < 3) || f === 0;
+          const lum = isHighlighted ? 0.66 : 0.54;
+          const sat = isHighlighted ? 0.95 : 0.84;
+
+          for (let sIdx = 0; sIdx <= SEGMENTS; sIdx++) {
+            const tx = tangents[sIdx * 3];
+            const ty = tangents[sIdx * 3 + 1];
+            const tz = tangents[sIdx * 3 + 2];
+
+            // Gram-Schmidt parallel transport step keeps u orthogonal to T without Frenet flips
+            const dotUT = ux * tx + uy * ty + uz * tz;
+            ux -= dotUT * tx;
+            uy -= dotUT * ty;
+            uz -= dotUT * tz;
+            const uLen = Math.sqrt(ux * ux + uy * uy + uz * uz) || 1.0;
+            ux /= uLen; uy /= uLen; uz /= uLen;
+
+            // v = T × u
+            const vx = ty * uz - tz * uy;
+            const vy = tz * ux - tx * uz;
+            const vz = tx * uy - ty * ux;
+
+            const cx = centerPts[sIdx * 3];
+            const cy = centerPts[sIdx * 3 + 1];
+            const cz = centerPts[sIdx * 3 + 2];
+
+            // Capture Darboux triad on primary highlighted trajectory (f === 0)
+            if (f === 0 && sIdx === darbouxSeg) {
+              darbouxPos = [cx, cy, cz];
+              darbouxTan = [tx, ty, tz];
+              // Radial manifold normal projected orthogonal to tangent
+              const rLen = Math.sqrt(cx * cx + cy * cy + cz * cz) || 1.0;
+              let nx = cx / rLen, ny = cy / rLen, nz = cz / rLen;
+              const dNT = nx * tx + ny * ty + nz * tz;
+              nx -= dNT * tx; ny -= dNT * ty; nz -= dNT * tz;
+              const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+              darbouxSurfN = [nx / nl, ny / nl, nz / nl];
+              torsionEstimate = Math.abs(ux * darbouxSurfN[0] + uy * darbouxSurfN[1] + uz * darbouxSurfN[2]) * 1.57;
+            }
+
+            const hueShift = (fiberHue + 0.07 * Math.sin((sIdx / SEGMENTS) * TAU)) % 1.0;
+
+            for (let r = 0; r < RADIAL_SIDES; r++) {
+              const rc = radialCos[r];
+              const rs = radialSin[r];
+              const nrmX = ux * rc + vx * rs;
+              const nrmY = uy * rc + vy * rs;
+              const nrmZ = uz * rc + vz * rs;
+
+              const vOffset = (baseVertex + sIdx * RADIAL_SIDES + r) * 3;
+              posArr[vOffset] = cx + fiberRad * nrmX;
+              posArr[vOffset + 1] = cy + fiberRad * nrmY;
+              posArr[vOffset + 2] = cz + fiberRad * nrmZ;
+
+              normArr[vOffset] = nrmX;
+              normArr[vOffset + 1] = nrmY;
+              normArr[vOffset + 2] = nrmZ;
+
+              hslToRgb(hueShift, sat, lum, colArr, vOffset);
+            }
+          }
+
+          // Update Streaming Spinor Photons along this fiber
+          for (let p = 0; p < PHOTONS_PER_FIBER; p++) {
+            const pPhase = ((p / PHOTONS_PER_FIBER) + t * 0.26 + f * 0.031) % 1.0;
+            const exactIdx = pPhase * SEGMENTS;
+            const idx0 = Math.floor(exactIdx);
+            const idx1 = Math.min(SEGMENTS, idx0 + 1);
+            const frac = exactIdx - idx0;
+
+            const pIdx = (f * PHOTONS_PER_FIBER + p) * 3;
+            pPosArr[pIdx] = centerPts[idx0 * 3] * (1 - frac) + centerPts[idx1 * 3] * frac;
+            pPosArr[pIdx + 1] = centerPts[idx0 * 3 + 1] * (1 - frac) + centerPts[idx1 * 3 + 1] * frac;
+            pPosArr[pIdx + 2] = centerPts[idx0 * 3 + 2] * (1 - frac) + centerPts[idx1 * 3 + 2] * frac;
+
+            hslToRgb(fiberHue, 1.0, 0.76, pColArr, pIdx);
+          }
+        }
+
+        tubePosAttr.needsUpdate = true;
+        tubeNormAttr.needsUpdate = true;
+        tubeColAttr.needsUpdate = true;
+        photonPosAttr.needsUpdate = true;
+        photonColAttr.needsUpdate = true;
+
+        // Update Darboux Moving Triad
+        darbouxGroup.visible = showDarboux;
+        if (showDarboux) {
+          darbouxGroup.position.set(darbouxPos[0], darbouxPos[1], darbouxPos[2]);
+          const vecT = new THREE.Vector3(darbouxTan[0], darbouxTan[1], darbouxTan[2]).normalize();
+          const vecN = new THREE.Vector3(darbouxSurfN[0], darbouxSurfN[1], darbouxSurfN[2]).normalize();
+          const vecBg = new THREE.Vector3().crossVectors(vecN, vecT).normalize();
+          arrowT.setDirection(vecT);
+          arrowBg.setDirection(vecBg);
+          arrowN.setDirection(vecN);
+        }
+
+        // Update Live Telemetry Readout every 4 frames
+        hudFrameCounter++;
+        if (hudFrameCounter % 4 === 0) {
+          const normVal = su2Norm(sampleQ0);
+          const commQ = commutator(su2Normalize(sampleQ0), su2Normalize(sampleQ1));
+          document.getElementById('hud-norm').textContent = normVal.toFixed(6);
+          document.getElementById('hud-comm').textContent = commQ[0].toFixed(4);
+          document.getElementById('hud-torsion').textContent = torsionEstimate.toFixed(3) + ' rad';
+          updateSonification(sampleQ0, commQ);
+        }
+      }
+
+      /* ---------------------------------------------------------------------
+       * 7. OPTIONAL TONE.JS HARMONIC HOLONOMY SYNTHESIZER
+       * -------------------------------------------------------------------*/
+      let sonicEnabled = false;
+      let sonicSynth = null;
+      let sonicFilter = null;
+      let lastChordTime = 0;
+
+      async function toggleSonification() {
+        const dot = document.getElementById('sonic-dot');
+        const label = document.getElementById('sonic-label');
+        if (!sonicEnabled) {
+          try {
+            await Tone.start();
+            if (!sonicSynth) {
+              sonicFilter = new Tone.Filter(950, 'lowpass').toDestination();
+              sonicSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.45, decay: 0.3, sustain: 0.5, release: 1.4 }
+              }).connect(sonicFilter);
+              sonicSynth.volume.value = -18;
+            }
+            sonicEnabled = true;
+            dot.className = 'w-2 h-2 rounded-full bg-purple-400 animate-ping';
+            label.textContent = 'Sonic Phase: ON';
+            showToast('Sonic Spinor Eigenphase Enabled', 'emerald');
+          } catch (e) {
+            showToast('Audio context blocked by browser', 'sky');
+          }
+        } else {
+          sonicEnabled = false;
+          if (sonicSynth) sonicSynth.releaseAll();
+          dot.className = 'w-2 h-2 rounded-full bg-slate-500';
+          label.textContent = 'Sonic Phase: OFF';
+        }
+      }
+
+      function updateSonification(q0, commQ) {
+        if (!sonicEnabled || !sonicSynth) return;
+        const now = performance.now();
+        if (now - lastChordTime < 900) return;
+        lastChordTime = now;
+
+        // Map SU(2) eigenangle arccos(w) ∈ [0, π] onto harmonic pentatonic/Lydian ratios
+        const eigenAngle = Math.acos(Math.max(-1, Math.min(1, q0[0])));
+        const baseFreq = 164.81 * (1.0 + 0.25 * (eigenAngle / PI)); // Around E3
+        const fifth = baseFreq * 1.498;
+        const ninth = baseFreq * (2.0 + 0.25 * Math.abs(commQ[1]));
+        if (sonicFilter) {
+          sonicFilter.frequency.rampTo(600 + 900 * Math.abs(commQ[0]), 0.4);
+        }
+        sonicSynth.triggerAttackRelease([baseFreq, fifth, ninth], '0.75');
+      }
+
+      /* ---------------------------------------------------------------------
+       * 8. INTERACTIVE 2D S² BLOCH BASE SPHERE PAD
+       * -------------------------------------------------------------------*/
+      function initS2Pad() {
+        const canvas = document.getElementById('s2-pad-canvas');
+        if (!canvas) return;
+
+        function pointerToS2(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          const nx = ((clientX - rect.left) / rect.width) * 2.0 - 1.0;
+          const ny = 1.0 - ((clientY - rect.top) / rect.height) * 2.0;
+          const r = Math.min(0.96, Math.sqrt(nx * nx + ny * ny));
+          const phi = (Math.atan2(ny, nx) + TAU) % TAU;
+          const theta = r * PI * 0.92 + 0.08;
+          return { nx: nx, ny: ny, theta: theta, phi: phi };
+        }
+
+        function onDown(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          const px = ((clientX - rect.left) / rect.width) * 2.0 - 1.0;
+          const py = 1.0 - ((clientY - rect.top) / rect.height) * 2.0;
+
+          let bestIdx = 0;
+          let bestDist = 999;
+          for (let i = 0; i < basePoints.length; i++) {
+            const rad = (basePoints[i].theta / PI) * 0.88;
+            const bx = rad * Math.cos(basePoints[i].phi);
+            const by = rad * Math.sin(basePoints[i].phi);
+            const d = (px - bx) * (px - bx) + (py - by) * (py - by);
+            if (d < bestDist) {
+              bestDist = d;
+              bestIdx = i;
+            }
+          }
+          draggingBaseIdx = bestIdx;
+          const mapped = pointerToS2(clientX, clientY);
+          basePoints[draggingBaseIdx].theta = mapped.theta;
+          basePoints[draggingBaseIdx].phi = mapped.phi;
+          drawS2Pad();
+        }
+
+        function onMove(clientX, clientY) {
+          if (draggingBaseIdx < 0) return;
+          const mapped = pointerToS2(clientX, clientY);
+          basePoints[draggingBaseIdx].theta = mapped.theta;
+          basePoints[draggingBaseIdx].phi = mapped.phi;
+          drawS2Pad();
+        }
+
+        canvas.addEventListener('mousedown', function (e) { onDown(e.clientX, e.clientY); });
+        window.addEventListener('mousemove', function (e) { onMove(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', function () { draggingBaseIdx = -1; });
+
+        canvas.addEventListener('touchstart', function (e) {
+          if (e.touches.length === 1) {
+            e.preventDefault();
+            onDown(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }, { passive: false });
+        canvas.addEventListener('touchmove', function (e) {
+          if (e.touches.length === 1 && draggingBaseIdx >= 0) {
+            e.preventDefault();
+            onMove(e.touches[0].clientX, e.touches[0].clientY);
+          }
+        }, { passive: false });
+        canvas.addEventListener('touchend', function () { draggingBaseIdx = -1; });
+      }
+
+      function drawS2Pad() {
+        const canvas = document.getElementById('s2-pad-canvas');
+        if (!canvas) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = canvas.clientWidth || 168;
+        const h = canvas.clientHeight || 168;
+        if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+          canvas.width = Math.floor(w * dpr);
+          canvas.height = Math.floor(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        const maxR = Math.min(w, h) * 0.44;
+
+        // Latitude circles (North Pole center -> Equator -> South ring)
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = 1;
+        [0.33, 0.66, 1.0].forEach(function (frac) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, maxR * frac, 0, TAU);
+          ctx.stroke();
+        });
+
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
+        ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
+        ctx.stroke();
+
+        // Draw 3 interactive S² fiber base nodes
+        for (let i = 0; i < basePoints.length; i++) {
+          const bp = basePoints[i];
+          const r = (bp.theta / PI) * maxR;
+          const x = cx + r * Math.cos(bp.phi);
+          const y = cy - r * Math.sin(bp.phi);
+
+          ctx.beginPath();
+          ctx.arc(x, y, 8.5, 0, TAU);
+          ctx.fillStyle = bp.color + '33';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(x, y, 4.8, 0, TAU);
+          ctx.fillStyle = bp.color;
+          ctx.fill();
+          ctx.strokeStyle = '#04060d';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      /* ---------------------------------------------------------------------
+       * 9. CHUNK-32 GPU WARP PARALLEL HOLONOMY SCANNER VISUALIZER
+       * -------------------------------------------------------------------*/
+      let scanPass = 5;           // 0..5 (__shfl_up_sync strides: 0, 1, 2, 4, 8, 16)
+      let scanModeSU2 = true;     // true = SU(2) Spinor, false = Scalar Diagonal SSM
+      let selectedLane = 31;
+      let autoScan = true;
+      let lastAutoStepTime = 0;
+
+      // Deterministic 32-token warp input sequence
+      const warpInputsSU2 = [];
+      const warpInputsScalar = [];
+      for (let k = 0; k < 32; k++) {
+        const ang = 0.42 + 0.28 * Math.sin(k * 0.73);
+        warpInputsSU2.push(su2Exp(Math.cos(k * 0.61), Math.sin(k * 0.89), Math.cos(k * 0.37), ang));
+        warpInputsScalar.push(0.84 + 0.08 * Math.cos(k * 0.5)); // Typical dissipative scalar gate ∈ (0.76, 0.92)
+      }
+
+      function computeWarpPrefixStates(passCount, isSU2) {
+        const states = [];
+        for (let i = 0; i < 32; i++) {
+          states.push(isSU2 ? warpInputsSU2[i].slice() : [warpInputsScalar[i], 0, 0, 0]);
+        }
+        for (let p = 1; p <= passCount; p++) {
+          const stride = 1 << (p - 1);
+          const prev = states.map(function (s) { return s.slice(); });
+          for (let lane = 0; lane < 32; lane++) {
+            if (lane >= stride) {
+              if (isSU2) {
+                // Associative left-to-right holonomy: Q_{0:lane} = Q_{0:lane-stride} ⊗ Q_{lane-stride+1:lane}
+                states[lane] = su2Mul(prev[lane - stride], prev[lane]);
+              } else {
+                states[lane] = [prev[lane - stride][0] * prev[lane][0], 0, 0, 0];
+              }
+            }
+          }
+        }
+        return states;
+      }
+
+      function updateLaneInspector() {
+        const states = computeWarpPrefixStates(scanPass, scanModeSU2);
+        const q = states[selectedLane];
+        const norm = su2Norm(q);
+
+        document.getElementById('lane-id-badge').textContent = 'laneId = ' + selectedLane;
+        document.getElementById('reg-w').textContent = (q[0] >= 0 ? '+' : '') + q[0].toFixed(4);
+        document.getElementById('reg-x').textContent = (q[1] >= 0 ? '+' : '') + q[1].toFixed(4);
+        document.getElementById('reg-y').textContent = (q[2] >= 0 ? '+' : '') + q[2].toFixed(4);
+        document.getElementById('reg-z').textContent = (q[3] >= 0 ? '+' : '') + q[3].toFixed(4);
+
+        const normEl = document.getElementById('reg-norm');
+        normEl.textContent = norm.toFixed(6);
+        normEl.className = scanModeSU2 ? 'text-emerald-300 font-semibold' : 'text-rose-300 font-semibold';
+
+        // Compute 4-Byte Razor ABI 32-bit packed representation from Beltrami + Hopf coordinates
+        const chart = (q[0] >= 0 ? 1 : 0) | ((Math.abs(q[1]) > Math.abs(q[2]) ? 1 : 0) << 1) | 4;
+        const b = beltrami(su2Normalize(q));
+        const uQuant = Math.max(0, Math.min(1023, Math.round(((b[0] + 1.5) / 3.0) * 1023)));
+        const vQuant = Math.max(0, Math.min(1023, Math.round(((b[1] + 1.5) / 3.0) * 1023)));
+        const psiAngle = (Math.atan2(q[1], q[0]) + TAU) % TAU;
+        const psiQuant = Math.max(0, Math.min(511, Math.round((psiAngle / TAU) * 511)));
+
+        const word32 = (((chart & 0x7) << 29) | ((uQuant & 0x3ff) << 19) | ((vQuant & 0x3ff) << 9) | (psiQuant & 0x1ff)) >>> 0;
+        document.getElementById('razor-hex').textContent = '0x' + word32.toString(16).toUpperCase().padStart(8, '0');
+        document.getElementById('razor-bits').textContent =
+          chart.toString(2).padStart(3, '0') + ' · ' +
+          uQuant.toString(2).padStart(10, '0') + ' · ' +
+          vQuant.toString(2).padStart(10, '0') + ' · ' +
+          psiQuant.toString(2).padStart(9, '0');
+      }
+
+      function drawWarpScanCanvas() {
+        const canvas = document.getElementById('warp-scan-canvas');
+        if (!canvas) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = canvas.clientWidth || 680;
+        const h = canvas.clientHeight || 320;
+        if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
+          canvas.width = Math.floor(w * dpr);
+          canvas.height = Math.floor(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, w, h);
+
+        const padX = 28;
+        const topY = 30;
+        const botY = h - 54;
+        const rowH = (botY - topY) / 5.0;
+        const colW = (w - padX * 2) / 31.0;
+
+        // Draw butterfly __shfl_up_sync edges up to current scanPass
+        for (let p = 1; p <= 5; p++) {
+          const stride = 1 << (p - 1);
+          const y0 = topY + (p - 1) * rowH;
+          const y1 = topY + p * rowH;
+          const isCurrent = (p === scanPass);
+          const isActive = (p <= scanPass);
+
+          for (let lane = 0; lane < 32; lane++) {
+            const xLane = padX + lane * colW;
+            // Vertical carry line
+            ctx.strokeStyle = isActive ? 'rgba(148, 163, 184, 0.25)' : 'rgba(51, 65, 85, 0.22)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(xLane, y0);
+            ctx.lineTo(xLane, y1);
+            ctx.stroke();
+
+            // Shuffle-up diagonal multiply edge
+            if (lane >= stride) {
+              const xSrc = padX + (lane - stride) * colW;
+              ctx.beginPath();
+              ctx.moveTo(xSrc, y0);
+              ctx.lineTo(xLane, y1);
+              if (isCurrent) {
+                ctx.strokeStyle = scanModeSU2 ? 'rgba(56, 189, 248, 0.72)' : 'rgba(251, 113, 133, 0.65)';
+                ctx.lineWidth = 1.45;
+              } else if (isActive) {
+                ctx.strokeStyle = scanModeSU2 ? 'rgba(168, 85, 247, 0.28)' : 'rgba(251, 113, 133, 0.22)';
+                ctx.lineWidth = 1;
+              } else {
+                ctx.strokeStyle = 'rgba(51, 65, 85, 0.14)';
+                ctx.lineWidth = 0.8;
+              }
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Draw nodes & bottom norm bars
+        const states = computeWarpPrefixStates(scanPass, scanModeSU2);
+        for (let p = 0; p <= 5; p++) {
+          const y = topY + p * rowH;
+          const activeRow = p <= scanPass;
+          for (let lane = 0; lane < 32; lane++) {
+            const x = padX + lane * colW;
+            const isSel = lane === selectedLane;
+            ctx.beginPath();
+            ctx.arc(x, y, isSel && p === scanPass ? 5.2 : 3.0, 0, TAU);
+            if (isSel && p === scanPass) {
+              ctx.fillStyle = '#fbbf24';
+            } else if (activeRow) {
+              ctx.fillStyle = scanModeSU2 ? '#38bdf8' : '#fb7185';
+            } else {
+              ctx.fillStyle = '#334155';
+            }
+            ctx.fill();
+          }
+        }
+
+        // Bottom State Norm Indicator Bar per lane (dramatically shows SU(2) ‖Q‖=1 vs Scalar Decay!)
+        const barBaseY = h - 12;
+        const maxBarH = 24;
+        for (let lane = 0; lane < 32; lane++) {
+          const x = padX + lane * colW;
+          const nrm = Math.min(1.0, su2Norm(states[lane]));
+          const bh = Math.max(2, nrm * maxBarH);
+          ctx.fillStyle = (lane === selectedLane)
+            ? '#fbbf24'
+            : (scanModeSU2 ? 'rgba(52, 211, 153, 0.85)' : 'rgba(251, 113, 133, 0.78)');
+          ctx.fillRect(x - 2.5, barBaseY - bh, 5, bh);
+        }
+
+        ctx.restore();
+      }
+
+      function setScanPass(p) {
+        scanPass = ((p % 6) + 6) % 6;
+        const stride = scanPass === 0 ? 0 : (1 << (scanPass - 1));
+        const badge = document.getElementById('scan-pass-badge');
+        badge.textContent = scanPass === 0
+          ? 'Pass 0 / 5 · Initial Lane Spinors q_k'
+          : 'Pass ' + scanPass + ' / 5 · Stride = ' + stride + (scanPass === 5 ? ' (Complete Prefix Q₀:₃₁)' : '');
+
+        document.querySelectorAll('.pass-btn').forEach(function (btn) {
+          const bp = parseInt(btn.getAttribute('data-pass'), 10);
+          btn.className = (bp === scanPass)
+            ? 'pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-purple-500/30 text-purple-200 border border-purple-400/50'
+            : 'pass-btn px-2 py-0.5 rounded text-[11px] font-mono bg-slate-800 text-slate-400 hover:text-slate-200';
+        });
+
+        const summary = document.getElementById('scan-summary-text');
+        if (scanModeSU2) {
+          summary.textContent = 'SU(2) Holosphere Scan: All 32 lanes preserve exact unit norm ‖Q_k‖ = 1.000000 with non-abelian NC¹ holonomy.';
+          summary.className = 'text-emerald-300';
+        } else {
+          summary.textContent = 'Scalar Diagonal SSM: Commutative gates [a,b]=0 lose permutation state & suffer exponential norm decay ‖h_31‖ → 0.005!';
+          summary.className = 'text-rose-300';
+        }
+
+        updateLaneInspector();
+        drawWarpScanCanvas();
+      }
+
+      function initWarpScannerEvents() {
+        const canvas = document.getElementById('warp-scan-canvas');
+        function pickLane(clientX) {
+          const rect = canvas.getBoundingClientRect();
+          const padX = 28;
+          const colW = (rect.width - padX * 2) / 31.0;
+          const idx = Math.round((clientX - rect.left - padX) / colW);
+          selectedLane = Math.max(0, Math.min(31, idx));
+          updateLaneInspector();
+          drawWarpScanCanvas();
+        }
+        canvas.addEventListener('mousemove', function (e) { pickLane(e.clientX); });
+        canvas.addEventListener('click', function (e) { pickLane(e.clientX); });
+        canvas.addEventListener('touchstart', function (e) {
+          if (e.touches.length === 1) pickLane(e.touches[0].clientX);
+        }, { passive: true });
+
+        document.getElementById('btn-step-scan').addEventListener('click', function () {
+          autoScan = false;
+          document.getElementById('btn-auto-scan').textContent = 'Auto-Step: OFF';
+          setScanPass(scanPass + 1);
+        });
+
+        document.getElementById('btn-auto-scan').addEventListener('click', function () {
+          autoScan = !autoScan;
+          this.textContent = autoScan ? 'Auto-Step: ON' : 'Auto-Step: OFF';
+        });
+
+        document.querySelectorAll('.pass-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            autoScan = false;
+            document.getElementById('btn-auto-scan').textContent = 'Auto-Step: OFF';
+            setScanPass(parseInt(this.getAttribute('data-pass'), 10));
+          });
+        });
+
+        const btnSU2 = document.getElementById('btn-scan-su2');
+        const btnScal = document.getElementById('btn-scan-scalar');
+        btnSU2.addEventListener('click', function () {
+          scanModeSU2 = true;
+          btnSU2.className = 'px-3 py-1.5 rounded-lg text-xs font-mono bg-sky-500/20 text-sky-200 border border-sky-400/40 transition';
+          btnScal.className = 'px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition';
+          setScanPass(scanPass);
+        });
+        btnScal.addEventListener('click', function () {
+          scanModeSU2 = false;
+          btnScal.className = 'px-3 py-1.5 rounded-lg text-xs font-mono bg-rose-500/20 text-rose-200 border border-rose-400/40 transition';
+          btnSU2.className = 'px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition';
+          setScanPass(scanPass);
+        });
+      }
+
+      /* ---------------------------------------------------------------------
+       * 10. LEAN 4 PROOF VIEWER & LIVE RANDOMIZED ORACLE CHECKER
+       * -------------------------------------------------------------------*/
+      /* BEGIN GENERATED LEAN_SUITES (scripts/gen_lean_viewer.py; do not edit by hand) */
+      const LEAN_SUITES = {
+  "invariants": {
+    "label": "lean/HoloSphereInvariants.lean (71,047 bytes · 36 public theorems · statements only, proofs omitted)",
+    "code": "-- Generated by scripts/gen_lean_viewer.py from lean/HoloSphereInvariants.lean (sha256 0ce44d8063ba721c). Statements only; see the file for proofs.\n\ntheorem p1_quat_mul_assoc (p q r : QuatZ) :\n    qmul (qmul p q) r = qmul p (qmul q r)\n\ntheorem p1_quat_identity_and_conj_antihom (p q : QuatZ) :\n    qmul qone p = p ∧\n    qmul p qone = p ∧\n    qconj (qmul p q) = qmul (qconj q) (qconj p) ∧\n    normSq (qconj p) = normSq p\n\ntheorem p1_quat_noncommutative_su2_holonomy_witness :\n    qmul qi qj = qk ∧ qmul qj qi = qneg qk ∧ qmul qi qj ≠ qmul qj qi\n\ntheorem p1_quat_euler_four_square_norm (p q : QuatZ) :\n    normSq (qmul p q) = normSq p * normSq q\n\ntheorem p1_quat_prefix_scan_unit_norm (us : List QuatZ) (init : QuatZ)\n    (hinit : normSq init = 1)\n    (hus : ∀ u, u ∈ us → normSq u = 1) :\n    normSq (us.foldl qmul init) = 1\n\ntheorem p1_quat_chunked_scan_eq_sequential (xs ys : List QuatZ) (init : QuatZ) :\n    (xs ++ ys).foldl qmul init = ys.foldl qmul (xs.foldl qmul init)\n\ntheorem p1_quat_hillis_steele_8lane_eq_sequential\n    (u0 u1 u2 u3 u4 u5 u6 u7 : QuatZ) :\n    hillisSteele8 u0 u1 u2 u3 u4 u5 u6 u7 = sequentialScan8 u0 u1 u2 u3 u4 u5 u6 u7\n\ntheorem p1_quat_bilinear_two_sided_adjoint (a b x c : QuatZ) :\n    inner4 a (qmul (qmul b x) c) = inner4 (qmul (qmul (qconj b) a) (qconj c)) x\n\ntheorem p1_quat_scan_step_backward_factorization\n    (pi_prev pi_t r_tj g du : QuatZ) :\n    let pi_j := qmul pi_t r_tj\n    normSq pi_t * inner4 g (qmul (qmul pi_prev du) r_tj) =\n      inner4 (qmul (qmul (qconj pi_prev) (qmul g (qconj pi_j))) pi_t) du ∧\n    (normSq pi_t = 1 →\n      inner4 g (qmul (qmul pi_prev du) r_tj) =\n        inner4 (qmul (qmul (qconj pi_prev) (qmul g (qconj pi_j))) pi_t) du)\n\ntheorem p1_quat_scan_suffix_sum_adjoint_collapse\n    (pi_prev pi_t du : QuatZ) (suffix : List (QuatZ × QuatZ)) :\n    perStepGradSum pi_prev pi_t du suffix =\n      inner4 (qmul (qmul (qconj pi_prev) (suffixRightAdjointSum suffix)) pi_t) du\n\ntheorem p1_cayley_su2_unit_norm_and_acute_positivity (d x y z : Int) :\n    normSq (cayleySU2Homog d x y z) =\n      (d * d + x * x + y * y + z * z) * (d * d + x * x + y * y + z * z) ∧\n    normSq (cayleySU2Homog 1 x y z) =\n      (1 + x * x + y * y + z * z) * (1 + x * x + y * y + z * z) ∧\n    (x * x + y * y + z * z < d * d →\n      0 < (cayleySU2Homog d x y z).w ∧ 0 < d * d + x * x + y * y + z * z)\n\ntheorem p1_local_4d_s3_zero_cross_bank_bleed\n    (qA qB qB_new : QuatZ) (hA : 0 < normSq qA) (hB : normSq qB ≠ normSq qB_new) :\n    qsub (qscale (normSq qA) qA) (qscale (normSq qA) qA) = qzero ∧\n    qsub (qscale (normSq qA + normSq qB_new) qA) (qscale (normSq qA + normSq qB) qA) =\n      qscale (normSq qB_new - normSq qB) qA ∧\n    0 < normSq (qsub (qscale (normSq qA + normSq qB_new) qA)\n                     (qscale (normSq qA + normSq qB) qA))\n\ntheorem p2_covariant_left_right_inverse_cancel (pi v : QuatZ) :\n    qmul (qconj pi) (qmul pi v) = qscale (normSq pi) v ∧\n    qmul (qmul v pi) (qconj pi) = qscale (normSq pi) v ∧\n    (normSq pi = 1 → qmul (qconj pi) (qmul pi v) = v ∧ qmul (qmul v pi) (qconj pi) = v)\n\ntheorem p2_covariant_left_transport_isometry (pi u v : QuatZ) :\n    inner4 (qmul pi u) (qmul pi v) = normSq pi * inner4 u v\n\ntheorem p2_covariant_qk_score_relative_holonomy (pi_t pi_s q k : QuatZ) :\n    inner4 (qmul pi_t q) (qmul pi_s k) =\n      inner4 q (qmul (qmul (qconj pi_t) pi_s) k)\n\ntheorem p2_covariant_interval_path_cancellation (pi_s delta : QuatZ)\n    (hunit : normSq pi_s = 1) :\n    qmul (qconj pi_s) (qmul pi_s delta) = delta ∧\n    qmul (qconj (qmul pi_s delta)) pi_s = qconj delta\n\ntheorem p2_covariant_value_untransport_single (pi_t pi_s v : QuatZ) :\n    qmul (qconj pi_t) (qmul pi_s v) = qmul (qmul (qconj pi_t) pi_s) v ∧\n    (normSq pi_t = 1 → qmul (qconj pi_t) (qmul pi_t v) = v)\n\ntheorem p2_covariant_value_untransport_weighted_sum\n    (pi_t : QuatZ) (kvs : List (Int × QuatZ × QuatZ)) :\n    qmul (qconj pi_t) (weightedTransportedSum kvs) =\n      weightedRelativeHolonomySum pi_t kvs\n\ntheorem p3_cayley_rational_unit_circle_identity (d n : Int) :\n    (d * d - n * n) * (d * d - n * n) + (2 * d * n) * (2 * d * n) =\n      (d * d + n * n) * (d * d + n * n) ∧\n    (1 - n * n) * (1 - n * n) + (2 * n) * (2 * n) =\n      (1 + n * n) * (1 + n * n)\n\ntheorem p3_cayley_acute_cone_strict_pos_and_floor (n n_max d : Int)\n    (hn0 : 0 ≤ n) (hn_le : n ≤ n_max) (hmax_lt : n_max < d) :\n    0 < d * d + n * n ∧\n    0 < d * d - n_max * n_max ∧\n    0 < d * d - n * n ∧\n    (d * d - n_max * n_max) * (d * d + n * n) ≤\n      (d * d - n * n) * (d * d + n_max * n_max)\n\ntheorem p3_cayley_acute_strict_monotone_distinct (n1 n2 d : Int)\n    (hn1 : 0 ≤ n1) (hlt : n1 < n2) (hn2 : n2 < d) :\n    (d * d - n2 * n2) * (d * d + n1 * n1) <\n      (d * d - n1 * n1) * (d * d + n2 * n2)\n\ntheorem p3_w10_obs31_obtuse_antipodal_sign_flip (n d vx vy : Int)\n    (hd : 0 < d) (hobtuse : d < n) (hv : vx ≠ 0 ∨ vy ≠ 0) :\n    d * d - n * n < 0 ∧\n    vx * ((d * d - n * n) * vx - (2 * d * n) * vy) +\n      vy * ((2 * d * n) * vx + (d * d - n * n) * vy) < 0\n\ntheorem p3_hopf_s3_to_s2_norm_and_right_fiber_invariance (q : QuatZ) (a b : Int) :\n    qmul (qmul q qi) (qconj q) = ⟨0, hopfHx q, hopfHy q, hopfHz q⟩ ∧\n    hopfHx q * hopfHx q + hopfHy q * hopfHy q + hopfHz q * hopfHz q =\n      normSq q * normSq q ∧\n    hopfHx (quatRightFiber q a b) = (a * a + b * b) * hopfHx q ∧\n    hopfHy (quatRightFiber q a b) = (a * a + b * b) * hopfHy q ∧\n    hopfHz (quatRightFiber q a b) = (a * a + b * b) * hopfHz q\n\ntheorem p4_beltrami_cayley_2x2_orthogonality_and_det (d n x0 x1 : Int) :\n    cayley2x2X d n x0 x1 * cayley2x2X d n x0 x1 +\n      cayley2x2Y d n x0 x1 * cayley2x2Y d n x0 x1 =\n      (d * d + n * n) * (d * d + n * n) * (x0 * x0 + x1 * x1) ∧\n    (d * d - n * n) * (d * d - n * n) - (2 * d * n) * (-(2 * d * n)) =\n      (d * d + n * n) * (d * d + n * n)\n\ntheorem p4_beltrami_paired_commutator_and_helicity_conservation\n    (lam d n v0 v1 v2 v3 : Int) :\n    let v := (v0, v1, v2, v3)\n    let s := d * d + n * n\n    beltramiStep4 d n (beltramiCurl4 lam v) = beltramiCurl4 lam (beltramiStep4 d n v) ∧\n    energy4 (beltramiStep4 d n v) = s * s * energy4 v ∧\n    helicity4 lam (beltramiStep4 d n v) = s * s * helicity4 lam v ∧\n    energy4 (crossSectorSwap4 v) = energy4 v ∧\n    helicity4 lam (crossSectorSwap4 v) - helicity4 lam v =\n      2 * lam * (v2 * v2 - v1 * v1)\n\ntheorem p4_beltrami_symmetric_residual_rayleigh_drift\n    (lam g_pos g_neg e_pos e_neg : Int)\n    (hlam : 0 < lam) (he_pos : 0 < e_pos) (he_neg : 0 < e_neg)\n    (hg : 0 < g_pos * g_pos - g_neg * g_neg) :\n    helicity4 lam (e_pos, 0, e_neg, 0) *\n        (g_pos * g_pos * (e_pos * e_pos) + g_neg * g_neg * (e_neg * e_neg)) <\n      (lam * (g_pos * g_pos * (e_pos * e_pos) - g_neg * g_neg * (e_neg * e_neg))) *\n        energy4 (e_pos, 0, e_neg, 0)\n\ntheorem p4_poloidal_bingham_hodge_stagnant_lid\n    (n m : Nat) (tauSq : Int) (u_pol u_tor : Nat → Int)\n    (hlid : normSqN n u_pol ≤ tauSq) :\n    (∀ i, i < n → binghamGatePol n tauSq u_pol i = 0) ∧\n    normSqN n (binghamGatePol n tauSq u_pol) = 0 ∧\n    normSqN n (binghamGatePol n tauSq u_pol) + normSqN m u_tor = normSqN m u_tor ∧\n    normSqN m u_tor ≤ normSqN n u_pol + normSqN m u_tor\n\ntheorem p4_darboux_isospectral_intertwining_and_dark_kernel\n    (m n : Nat) (A : Nat → Nat → Int) (c : Int) (x k : Nat → Int)\n    (hker : ∀ i, i < m → matVecRect m n A k i = 0) :\n    (∀ i j, i < m → j < n →\n      matMulRect m n n A (darbouxL1 m n A c) i j =\n        matMulRect m m n (darbouxL2 m n A c) A i j) ∧\n    (∀ i, i < m → matVecRect m n A (fun j => x j + k j) i = matVecRect m n A x i)\n\ntheorem p4_cayley2x2_closed_form_adjoint (d n w g0 g1 x0 x1 : Int) :\n    g0 * cayley2x2X d n x0 x1 + g1 * cayley2x2Y d n x0 x1 =\n      ((d * d - n * n) * g0 - (2 * d * n) * g1) * x0 +\n        ((2 * d * n) * g0 + (d * d - n * n) * g1) * x1 ∧\n    g0 * (((-2 * w) * x0 + 2 * x1) * (1 + w * w) - cayley2x2X 1 w x0 x1 * (2 * w)) +\n      g1 * ((-2 * x0 - (2 * w) * x1) * (1 + w * w) - cayley2x2Y 1 w x0 x1 * (2 * w)) =\n      2 * (g0 * cayley2x2Y 1 w x0 x1 - g1 * cayley2x2X 1 w x0 x1)\n\ntheorem p5_weft_w10_obs20_cancellation_attack_blocked (a : Int) (ha : a ≠ 0) :\n    5 * maxRowSq2x2 (obs20Patch1 a) ≤ 3 * frobSq2x2 (obs20Patch1 a) ∧\n    5 * maxRowSq2x2 (obs20Patch2 a) ≤ 3 * frobSq2x2 (obs20Patch2 a) ∧\n    3 * frobSq2x2 (addMat2x2 (obs20Patch1 a) (obs20Patch2 a)) <\n      5 * maxRowSq2x2 (addMat2x2 (obs20Patch1 a) (obs20Patch2 a)) ∧\n    weftTriGate 3 5 (obs20Patch1 a) (obs20Patch2 a) true true = false\n\ntheorem p5_weft_tri_conjunctive_commit_soundness\n    (c_num c_den : Int) (D_prev dW : Mat2x2) (receipt holdout : Bool) :\n    weftTriGate c_num c_den D_prev dW receipt holdout = true ↔\n      (0 < frobSq2x2 (addMat2x2 D_prev dW) ∧\n       c_den * maxRowSq2x2 (addMat2x2 D_prev dW) ≤ c_num * frobSq2x2 (addMat2x2 D_prev dW) ∧\n       receipt = true ∧\n       holdout = true)\n\ntheorem p5_weft_isotropic_sleep_preserves_crow_gate\n    (lam c_num c_den : Int) (M : Mat2x2) (hlam : lam ≠ 0) :\n    c_den * maxRowSq2x2 (scaleMat2x2 lam M) ≤ c_num * frobSq2x2 (scaleMat2x2 lam M) ↔\n      c_den * maxRowSq2x2 M ≤ c_num * frobSq2x2 M\n\ntheorem p5_weft_atomic_rollback_exact_involution\n    (W dW : Nat → Nat → Int) (patches : List (Nat → Nat → Int)) (i j : Nat) :\n    (W i j + dW i j) - dW i j = W i j ∧\n    rollbackPatches (commitPatches W patches) patches i j = W i j\n\ntheorem p5_su2_holonomy_repoisoning_and_16b_rollback\n    (pi_t0 e_err : QuatZ) (clean_future : List QuatZ)\n    (h0 : normSq pi_t0 = 1) (herr_norm : normSq e_err = 1) (herr_ne : e_err ≠ qone)\n    (hclean : ∀ u, u ∈ clean_future → normSq u = 1) :\n    let delta := clean_future.foldl qmul qone\n    let pi_clean := clean_future.foldl qmul pi_t0\n    let pi_stale := clean_future.foldl qmul (qmul pi_t0 e_err)\n    let pi_restored := clean_future.foldl qmul (restoreHolonomy16B pi_t0 (qmul pi_t0 e_err))\n    normSq pi_stale = 1 ∧\n    qmul (qconj pi_t0) pi_clean = delta ∧\n    qmul (qconj pi_t0) pi_stale = qmul e_err delta ∧\n    normSq (qsub (qmul (qconj pi_t0) pi_stale) delta) = normSq (qsub e_err qone) ∧\n    0 < normSq (qsub e_err qone) ∧\n    pi_stale ≠ pi_clean ∧\n    pi_restored = pi_clean ∧\n    qmul (qconj pi_t0) pi_restored = delta\n\ntheorem p5_gate_asymmetric_recovery_vs_symmetric_deadlock\n    (n i0 : Nat) (u u0 : Nat → Int) (R : Int)\n    (hi0 : i0 < n) (hdesc : ∀ i, i < n → u i ≤ u0 i) (hstrict : u i0 < u0 i0) :\n    asymExcessSq n u u0 = 0 ∧\n    gateAsymmetric n u u0 R = true ∧\n    0 < symDistSq n u u0 ∧\n    (R ≤ 0 → gateSymmetricSigned n u u0 R = false)\n\ntheorem p5_asymmetric_left_factor_zero_nullspace_drift\n    (p m n : Nat) (Q_B A : Nat → Nat → Int) (x : Nat → Int)\n    (hker : ∀ r, r < m → matVecRect m n A x r = 0) :\n    (∀ i, i < p → matVecRect p m Q_B (matVecRect m n A x) i = 0) ∧\n    (∀ i, i < p → matVecRect p n (matMulRect p m n Q_B A) x i = 0) ∧\n    matVecRect 1 2 rightOrigA rightNullX 0 = 0 ∧\n    matVecRect 1 2 rightQuantA rightNullX 0 ≠ 0"
+  },
+  "barrington": {
+    "label": "lean/HoloSphereSpinorBarrington.lean (26,396 bytes · 3 public theorems · statements only, proofs omitted)",
+    "code": "-- Generated by scripts/gen_lean_viewer.py from lean/HoloSphereSpinorBarrington.lean (sha256 972c14c36e991ab4). Statements only; see the file for proofs.\n\n/-- Theorem #46 (Track S119 — Sign-Free Spinor-Barrington C_10^+ Exact Closure):\n    Over exact Z[sqrt(5)] quaternions at scale 4 (normSq = 16, zero floats):\n      1. Exact unit norms: normSq(tau0_4) = normSq(gAlpha_4) = normSq(gBeta_4) = (16, 0),\n      2. Exact spinor order 10 (both in lossless scale-4 group uPow AND pure division-free rawPow):\n         tau0^5 = -I, tau0^10 = +I, and tau0^k != +I for all proper divisors k in {1, 2, 5},\n      3. Exact lossless scale-4 integrality & sign-free commutator closure:\n         for alpha = g_alpha * tau0 * conj(g_alpha) and beta = g_beta * tau0 * conj(g_beta),\n         every intermediate scale-4 product satisfies 4 * uMul(X, Y) = q5MulRaw(X, Y) (zero remainder!),\n         normSq(alpha) = normSq(beta) = (16, 0), AND [alpha, beta] = +tau0_4\n         (zero sign canonicalization, zero -I leakage!),\n      4. Complete Boolean gate truth table on {+I, +tau0}:\n         AND(I, I) = I, AND(I, tau0) = I, AND(tau0, I) = I, AND(tau0, tau0) = tau0,\n         NOT(I) = tau0, and NOT(tau0) = I. -/\ntheorem p46_spinor_barrington_c10_exact_closure :\n    (q5NormSq tau0_4 = ⟨16, 0⟩ ∧\n     q5NormSq gAlpha_4 = ⟨16, 0⟩ ∧\n     q5NormSq gBeta_4 = ⟨16, 0⟩) ∧\n    (uPow tau0_4 5 = negI4 ∧\n     uPow tau0_4 10 = I4 ∧\n     uPow tau0_4 1 ≠ I4 ∧\n     uPow tau0_4 2 ≠ I4 ∧\n     uPow tau0_4 5 ≠ I4 ∧\n     rawPow tau0_4 5 = q5ScaleInt 256 negI4 ∧\n     rawPow tau0_4 10 = q5ScaleInt 262144 I4) ∧\n    (let alpha := uConjBy gAlpha_4 tau0_4\n     let beta := uConjBy gBeta_4 tau0_4\n     q5ScaleInt 4 (uMul gAlpha_4 tau0_4) = q5MulRaw gAlpha_4 tau0_4 ∧\n     q5ScaleInt 4 alpha = q5MulRaw (uMul gAlpha_4 tau0_4) (q5Conj gAlpha_4) ∧\n     q5ScaleInt 4 (uMul gBeta_4 tau0_4) = q5MulRaw gBeta_4 tau0_4 ∧\n     q5ScaleInt 4 beta = q5MulRaw (uMul gBeta_4 tau0_4) (q5Conj gBeta_4) ∧\n     q5NormSq alpha = ⟨16, 0⟩ ∧\n     q5NormSq beta = ⟨16, 0⟩ ∧\n     q5ScaleInt 4 (uMul alpha beta) = q5MulRaw alpha beta ∧\n     q5ScaleInt 4 (uMul (q5Conj alpha) (q5Conj beta)) = q5MulRaw (q5Conj alpha) (q5Conj beta) ∧\n     q5ScaleInt 4 (uComm alpha beta) =\n       q5MulRaw (uMul alpha beta) (uMul (q5Conj alpha) (q5Conj beta)) ∧\n     uComm alpha beta = tau0_4) ∧\n    (spinorAND I4 I4 = I4 ∧\n     spinorAND I4 tau0_4 = I4 ∧\n     spinorAND tau0_4 I4 = I4 ∧\n     spinorAND tau0_4 tau0_4 = tau0_4 ∧\n     spinorNOT I4 = tau0_4 ∧\n     spinorNOT tau0_4 = I4)\n\n/-- Theorem #47 (Track S119 — Universal Commutator Real-Part Theorem & Order-5 Obstruction):\n    1. Universal exact quaternion commutator real-part theorem over Int (QuatZ):\n       for ALL a, b : QuatZ, Re(a * b * conj(a) * conj(b)) = normSq(a)*normSq(b) - 2*||vec(a) x vec(b)||^2,\n    2. Universal exact quaternion commutator real-part theorem over Z[sqrt(5)] (QuatZ5):\n       for ALL p, q : QuatZ5, Re(p * q * conj(p) * conj(q)) = normSq(p)*normSq(q) - 2*||vec(p) x vec(q)||^2,\n    3. Exact order-5 spinor Z_2 obstruction on sigma0 = -tau0:\n       - sigma0^5 = +I and sigma0^1 != +I (exact order 5),\n       - [g_alpha * sigma0 * conj(g_alpha), g_beta * sigma0 * conj(g_beta)] = +tau0 = -sigma0 != +sigma0,\n       - Re(sigma0) < 0 (¬ z5Pos sigma0.w and z5Pos (-sigma0.w)) whereas Re(+tau0) > 0 (z5Pos tau0.w). -/\ntheorem p47_su2_commutator_trace_and_order5_obstruction\n    (a b : QuatZ) (p q : QuatZ5) :\n    (qzCommRaw a b).w = qzNormSq a * qzNormSq b - 2 * qzCrossNormSq a b ∧\n    (q5CommRaw p q).w =\n      z5Sub (z5Mul (q5NormSq p) (q5NormSq q)) (z5Scale 2 (q5CrossNormSq p q)) ∧\n    (uPow sigma0_4 5 = I4 ∧\n     uPow sigma0_4 1 ≠ I4 ∧\n     uComm (uConjBy gAlpha_4 sigma0_4) (uConjBy gBeta_4 sigma0_4) = tau0_4 ∧\n     uComm (uConjBy gAlpha_4 sigma0_4) (uConjBy gBeta_4 sigma0_4) = q5Neg sigma0_4 ∧\n     uComm (uConjBy gAlpha_4 sigma0_4) (uConjBy gBeta_4 sigma0_4) ≠ sigma0_4 ∧\n     z5Pos tau0_4.w ∧\n     ¬ z5Pos sigma0_4.w ∧\n     z5Pos (z5Neg sigma0_4.w))\n\n/-- Theorem #48 (Track S119 — Spinor-Barrington Acute Cayley Ball ||omega||^2 < (4/5)^2):\n    In exact ordered Z[sqrt(5)] (zero IEEE-754 floats):\n      1. Order soundness: z5Pos is strictly asymmetric (z5Pos z -> ¬ z5Pos (-z)) and\n         brackets sqrt(5) tightly between 223/100 and 224/100 (223 < 100*sqrt(5) < 224),\n      2. All five Spinor-Barrington 2I generators — tau0, g_alpha, g_beta,\n         alpha = g_alpha*tau0*conj(g_alpha), and beta = g_beta*tau0*conj(g_beta) —\n         satisfy BOTH strict acute real part q_0 > 0 AND strict Cayley bounded-ball\n         25 * ||vec(Q)||^2 < 16 * (4 + Q_0)^2 (i.e. ||omega|| < 4/5 = 0.8),\n      3. Exact algebraic radius of C_10^+: ||omega(tau0)||^2 = tan^2(pi/10) = (5 - 2*sqrt(5))/5,\n         verified via (4 + tau0_4.w)^2 * (5 - 2*sqrt(5)) = 5 * ||vec(tau0_4)||^2\n         and 0 < (5 - 2*sqrt(5))/5 < 16/25 (5 * (5 - 2*sqrt(5)) < 16),\n      4. Exact algebraic radius of g_beta: ||omega(g_beta)||^2 = 1/3 < 16/25\n         (3 * ||vec(gBeta_4)||^2 = (4 + gBeta_4.w)^2 = 36). -/\ntheorem p48_spinor_barrington_acute_cayley_ball (z : ZSqrt5) :\n    (z5Pos z → ¬ z5Pos (z5Neg z)) ∧\n    (z5Lt ⟨223, 0⟩ ⟨0, 100⟩ ∧ z5Lt ⟨0, 100⟩ ⟨224, 0⟩) ∧\n    (inAcuteCayleyBall08 tau0_4 ∧\n     inAcuteCayleyBall08 gAlpha_4 ∧\n     inAcuteCayleyBall08 gBeta_4 ∧\n     inAcuteCayleyBall08 (uConjBy gAlpha_4 tau0_4) ∧\n     inAcuteCayleyBall08 (uConjBy gBeta_4 tau0_4)) ∧\n    (z5Mul (z5Sq (z5Add ⟨4, 0⟩ tau0_4.w)) ⟨5, -2⟩ = z5Scale 5 (q5VecNormSq tau0_4) ∧\n     z5Pos ⟨5, -2⟩ ∧\n     z5Lt (z5Scale 5 ⟨5, -2⟩) ⟨16, 0⟩) ∧\n    (z5Scale 3 (q5VecNormSq gBeta_4) = z5Sq (z5Add ⟨4, 0⟩ gBeta_4.w) ∧\n     z5Sq (z5Add ⟨4, 0⟩ gBeta_4.w) = ⟨36, 0⟩)"
+  },
+  "bridges": {
+    "label": "lean/HoloSphereCrossSpineBridges.lean (46,891 bytes · 2 public theorems · statements only, proofs omitted)",
+    "code": "-- Generated by scripts/gen_lean_viewer.py from lean/HoloSphereCrossSpineBridges.lean (sha256 2381dd26ca5c8411). Statements only; see the file for proofs.\n\n/-- Theorem #49 (Track S120 BRIDGE_11 — bent4 Polar Form === M3 U_4(F_2) Shear Bracket, Pauli, Flat WHT & Carry-Cover):\n    Proved constructively with zero Classical.choice and zero Quot.sound ([propext] only)! -/\ntheorem p49_bridge11_bent4_u4_symplectic_and_flat_wht (z k : Int) :\n    (∀ x : Fin 16, bent4Quad x = s117Bent4RawBitwise x) ∧\n    ((∀ x y : Fin 16, xor (xor (bent4Quad (fin16Xor x y)) (bent4Quad x)) (bent4Quad y) = bent4Polar x y) ∧\n     (∀ x : Fin 16, bent4Polar x x = false) ∧\n     (∀ x : Fin 16, (∀ y : Fin 16, bent4Polar x y = false) ↔ x = ⟨0, by decide⟩)) ∧\n    ((∀ x y : Fin 16, ∀ s t : Bool, u4Heis x s = u4Heis y t → (x = y ∧ s = t)) ∧\n     (∀ x y : Fin 16, ∀ s t : Bool,\n       mat4MulF2 (u4Heis x s) (u4Heis y t) =\n         u4Heis (fin16Xor x y) (xor (xor s t) (heisCocycle x y))) ∧\n     (∀ x : Fin 16, ∀ s : Bool,\n       mat4MulF2 (u4Heis x s) (u4Inv x s) = mat4IdF2 ∧\n       mat4MulF2 (u4Inv x s) (u4Heis x s) = mat4IdF2) ∧\n     (∀ x y : Fin 16, ∀ s t : Bool,\n       u4Comm x s y t = u4Heis ⟨0, by decide⟩ (bent4Polar x y))) ∧\n    ((∀ x y : Fin 16,\n       mat4XorF2 (mat4MulF2 (grU4Elem x) (grU4Elem y)) (mat4MulF2 (grU4Elem y) (grU4Elem x)) =\n         grCentralE03 (bent4Polar x y)) ∧\n     (∀ x y : Fin 16,\n       mat4MulZ (pauli4Z x) (pauli4Z y) =\n         mat4ScaleZ (if bent4Polar x y then -1 else 1) (mat4MulZ (pauli4Z y) (pauli4Z x)))) ∧\n    (∀ u : Fin 16, mat4EntryZ whtBent4Mat u = 4 * (if bent4Quad u then -1 else 1)) ∧\n    ((∀ x y : Fin 16, bent4Mod2Lift x y = bent4Quad x) ∧\n     ((z + 2 * k) * (z + 2 * k) - (z * z + 4 * k * k) = 4 * z * k) ∧\n     a16SyndromeIsZero cleanCw000FBits = true ∧\n     (∀ b : Fin 3, ∀ j : Fin 16,\n       a16SyndromeIsZero (extractLsbMat4F2 (perturbCw000FZ b j)) = true ∧\n       h16PerturbDiffSq b j = 16 * upperStepInt b * upperStepInt b ∧\n       a16SyndromeMat4 (extractUpperPlaneMat4F2 b (perturbCw000FZ b j)) = (true, bitsOfFin16 j)))\n\n/-- Theorem #50 (Track S120 BRIDGE_12 — Non-Scalar Krein-Holonomy Phase Detector K_t):\n    Proved with ZERO Classical.choice ([propext, Quot.sound] only)! -/\ntheorem p50_bridge12_nonscalar_krein_holonomy_order_split\n    (p m : Mat3Z) (v : Vec3Z) {c1 c2 : Int} (hc1 : 0 < c1) (hc2 : 0 < c2)\n    (q : QuatZ) (hunit : qzNormSq q = 1) :\n    (quadForm3 (mat3Cong p m) v = quadForm3 m (mat3Vec p v)) ∧\n    (isSO3Z uCyc = true ∧\n     isSO3Z rhoGBeta = true ∧\n     kreinDefectUL25 mat3Id uCyc lDiag5 = mat3Diag 16 (-11) 16 ∧\n     kreinDefectLU25 mat3Id uCyc lDiag5 = mat3Diag 16 16 (-11) ∧\n     mat3CharPoly (kreinDefectUL25 mat3Id uCyc lDiag5) =\n       mat3CharPoly (kreinDefectLU25 mat3Id uCyc lDiag5) ∧\n     mat3Cong uCyc (kreinDefectUL25 mat3Id uCyc lDiag5) =\n       kreinDefectLU25 mat3Id uCyc lDiag5 ∧\n     diagInertia3 (kreinDefectUL25 mat3Id uCyc lDiag5) = (2, 1, 0) ∧\n     diagInertia3 (kreinDefectLU25 mat3Id uCyc lDiag5) = (2, 1, 0) ∧\n     mat3CharPoly (kreinDefectUL25 mat3Id rhoGBeta lDiag5) =\n       mat3CharPoly (kreinDefectLU25 mat3Id rhoGBeta lDiag5) ∧\n     diagInertia3 (kreinDefectUL25 mat3Id rhoGBeta lDiag5) = (2, 1, 0) ∧\n     diagInertia3 (kreinDefectLU25 mat3Id rhoGBeta lDiag5) = (2, 1, 0)) ∧\n    (kreinDefectUL25 g311 uCyc lDiag5 = mat3Diag 66 (-83) 16 ∧\n     kreinDefectLU25 g311 uCyc lDiag5 = mat3Diag 66 (-2) (-11) ∧\n     diagInertia3 (kreinDefectUL25 g311 uCyc lDiag5) = (2, 1, 0) ∧\n     diagInertia3 (kreinDefectLU25 g311 uCyc lDiag5) = (1, 2, 0) ∧\n     diagInertia3 (kreinDefectUL25 g311 rhoGBeta lDiag5) = (2, 1, 0) ∧\n     diagInertia3 (kreinDefectLU25 g311 rhoGBeta lDiag5) = (1, 2, 0) ∧\n     diagInertia3 (kreinDefectUL25 g114 uCyc lDiag5) = (1, 2, 0) ∧\n     diagInertia3 (kreinDefectLU25 g114 uCyc lDiag5) = (2, 1, 0) ∧\n     mat3Scale c1 (mat3Cong p (kreinDefectUL25 g311 uCyc lDiag5)) ≠\n       mat3Scale c2 (kreinDefectLU25 g311 uCyc lDiag5) ∧\n     mat3Scale c1 (mat3Cong p (kreinDefectLU25 g311 uCyc lDiag5)) ≠\n       mat3Scale c2 (kreinDefectUL25 g311 uCyc lDiag5)) ∧\n    ((holonomyBlockZ (qzNeg q) = holonomyBlockZ q ∧\n      holonomyBlockZ q ≠ 0 ∧\n      (holonomyBlockZ q < 0 ↔ (q = qzPosI ∨ q = qzNegI)) ∧\n      ((q = qzPosI ∨ q = qzNegI) → holonomyBlockZ q = -1) ∧\n      ((q ≠ qzPosI ∧ q ≠ qzNegI) → holonomyBlockZ q = 3)) ∧\n     ((∀ blk : Fin 10, ∀ slt : Fin 12, checkElem2IUniqueAt blk slt = true) ∧\n      (∀ blk : Fin 10, ∀ slt : Fin 12,\n        q5NormSq (elem2I blk slt) = ⟨16, 0⟩ ∧\n        isElem2IB (elem2I blk slt) = true ∧\n        isElem2IB (uMul2I tau0_4 (elem2I blk slt)) = true ∧\n        isElem2IB (uMul2I gBeta_4 (elem2I blk slt)) = true ∧\n        holonomyBlock2I_16 (q5Neg (elem2I blk slt)) = holonomyBlock2I_16 (elem2I blk slt) ∧\n        (elem2I blk slt = I4 ∨ elem2I blk slt = negI4 ∨\n         z5PosB (z5Sub ⟨24, -8⟩ (holonomyBlock2I_16 (elem2I blk slt))) = false)) ∧\n      holonomyBlock2I_16 I4 = ⟨-16, 0⟩ ∧\n      holonomyBlock2I_16 tau0_4 = ⟨24, -8⟩ ∧\n      z5PosB ⟨24, -8⟩ = true ∧\n      count2I (fun g => z5PosB (z5Neg (holonomyBlock2I_16 g))) = 2 ∧\n      count2I (fun g => decide (holonomyBlock2I_16 g = z5Zero)) = 0 ∧\n      count2I (fun g => z5PosB (holonomyBlock2I_16 g)) = 118))"
+  },
+  "cellop": {
+    "label": "lean/HoloSphereCellOpInvariants.lean (37,414 bytes · 5 public theorems · statements only, proofs omitted)",
+    "code": "-- Generated by scripts/gen_lean_viewer.py from lean/HoloSphereCellOpInvariants.lean (sha256 78c8e3bae5bd1656). Statements only; see the file for proofs.\n\n/-- Theorem #37 (OBS-ORDA-01 / OBS-ORDA-04 — Block-H4 Involutory Identity & int8 Bounds):\n    For any 4-tuple of signed 4-bit nibbles u = (u0, u1, u2, u3) with -8 <= u_i <= 7:\n      1. Exact involutory Hadamard law: H_4 (H_4 u) = 4 * u (justifying the exact 0.5 * scale\n         in SiliquantA16BlockH4STE so (0.5 * H_4)^2 = I_4),\n      2. Exact Parseval norm law: ||H_4 u||^2 = 4 * ||u||^2,\n      3. Tight componentwise signed int8 bounds: every component r_k of H_4 u satisfies\n         -32 <= r_k <= 30 (strictly inside int8 [-128, 127]),\n      4. Exact boundary witnesses: (-8,-8,-8,-8) -> (-32,0,0,0), (7,7,7,7) -> (28,0,0,0),\n         and alternating parity nibble (7,-8,7,-8) -> (-2,30,0,0) attaining +30. -/\ntheorem p1_blockh4_involutory_and_int8_bounds (u : Vec4Z)\n    (h0_lo : -8 ≤ u.u0) (h0_hi : u.u0 ≤ 7)\n    (h1_lo : -8 ≤ u.u1) (h1_hi : u.u1 ≤ 7)\n    (h2_lo : -8 ≤ u.u2) (h2_hi : u.u2 ≤ 7)\n    (h3_lo : -8 ≤ u.u3) (h3_hi : u.u3 ≤ 7) :\n    blockH4 (blockH4 u) = vec4Scale 4 u ∧\n    vec4NormSq (blockH4 u) = 4 * vec4NormSq u ∧\n    (-32 ≤ (blockH4 u).u0 ∧ (blockH4 u).u0 ≤ 30) ∧\n    (-32 ≤ (blockH4 u).u1 ∧ (blockH4 u).u1 ≤ 30) ∧\n    (-32 ≤ (blockH4 u).u2 ∧ (blockH4 u).u2 ≤ 30) ∧\n    (-32 ≤ (blockH4 u).u3 ∧ (blockH4 u).u3 ≤ 30) ∧\n    blockH4 ⟨-8, -8, -8, -8⟩ = ⟨-32, 0, 0, 0⟩ ∧\n    blockH4 ⟨7, 7, 7, 7⟩ = ⟨28, 0, 0, 0⟩ ∧\n    blockH4 ⟨7, -8, 7, -8⟩ = ⟨-2, 30, 0, 0⟩\n\n/-- Theorem #38 (W10-OBS-48 / OBS-ORDA-09 — Cayley Unit-Ball SO(3) Involution & +-I Readout):\n    For any integer/rational generator w : Vec3, homogeneous denominator d : Int,\n    quaternion q : QuatZ, and vector v : Vec3:\n      1. Unit-norm generator ||w||^2 = 1 gives exact scalar part 0 in cayleyNum(w) = (0, 2*w)\n         and exact quaternion square cayleyNum(w)^2 = (-4, 0, 0, 0) (pure 180-deg SO(3) involution\n         at finite ||w|| = 1 with zero singularity and positive denominator cayleyDen(w) = 2 > 0),\n      2. Homogeneous rational unit sphere ||w||^2 = d^2 (for any rational generator w/d in Q^3)\n         likewise gives (cayleyHomNum d w).w = 0 and cayleyHomNum(d, w)^2 = (-4*d^4, 0, 0, 0),\n      3. Exact +-I-invariant readout: so3Adj(-q) = so3Adj(q) identically for all q : QuatZ\n         (quotienting SU(2)/{+-I} = SO(3), covering A_5 = 2I/{+-I} inside ||w|| <= 1 in 1 step),\n      4. Exact conjugation bridge: q * (0, v) * conj(q) = (0, so3Act q v). -/\ntheorem p2_cayley_unit_ball_so3_involution_and_even\n    (w : Vec3) (d : Int) (q : QuatZ) (v : Vec3) :\n    (vec3NormSq w = 1 →\n      (cayleyNum w).w = 0 ∧ qmul (cayleyNum w) (cayleyNum w) = ⟨-4, 0, 0, 0⟩) ∧\n    (vec3NormSq w = d * d →\n      (cayleyHomNum d w).w = 0 ∧\n      qmul (cayleyHomNum d w) (cayleyHomNum d w) = ⟨-(4 * (d * d) * (d * d)), 0, 0, 0⟩) ∧\n    so3Adj (qneg q) = so3Adj q ∧\n    qmul (qmul q ⟨0, v.x, v.y, v.z⟩) (qconj q) =\n      ⟨0, (so3Act q v).x, (so3Act q v).y, (so3Act q v).z⟩\n\n/-- Theorem #39 (W10-OBS-52 / OBS-ORDA-13 — Cayley Exact Inverse & O(1)-VRAM Reversibility):\n    For any generator w : Vec3, rational denominator d : Int, and holonomy state U : QuatZ:\n      1. Strict positivity of unit denominator: 0 < cayleyDen w = 1 + ||w||^2,\n      2. Unit-denominator left & right inverse:\n         qmul (cayleyNum w) (cayleyNum (-w)) = (cayleyDen(w)^2, 0, 0, 0) =\n         qmul (cayleyNum (-w)) (cayleyNum w),\n      3. Homogeneous rational inverse & Euler norm:\n         qmul (cayleyHomNum d w) (cayleyHomNum d (-w)) = (cayleyHomDen(d, w)^2, 0, 0, 0)\n         and normSq (cayleyHomNum d w) = cayleyHomDen(d, w)^2,\n      4. Exact O(1)-VRAM backward holonomy step reconstruction (kappa = 1):\n         qmul (cayleyHomNum d (-w)) (qmul (cayleyHomNum d w) U) = cayleyHomDen(d, w)^2 * U. -/\ntheorem p3_cayley_exact_inverse_reversibility (w : Vec3) (d : Int) (U : QuatZ) :\n    0 < cayleyDen w ∧\n    qmul (cayleyNum w) (cayleyNum (vec3Neg w)) =\n      ⟨cayleyDen w * cayleyDen w, 0, 0, 0⟩ ∧\n    qmul (cayleyNum (vec3Neg w)) (cayleyNum w) =\n      ⟨cayleyDen w * cayleyDen w, 0, 0, 0⟩ ∧\n    qmul (cayleyHomNum d w) (cayleyHomNum d (vec3Neg w)) =\n      ⟨cayleyHomDen d w * cayleyHomDen d w, 0, 0, 0⟩ ∧\n    normSq (cayleyHomNum d w) =\n      cayleyHomDen d w * cayleyHomDen d w ∧\n    qmul (cayleyHomNum d (vec3Neg w)) (qmul (cayleyHomNum d w) U) =\n      qscale (cayleyHomDen d w * cayleyHomDen d w) U\n\n/-- Theorem #40 (W10-OBS-51 / OBS-ORDA-12 — H_256 Byte Injection Pairwise Orthogonality):\n    Proves by exact k-bit character-sum induction (zero native_decide, zero Lean.ofReduceBool,\n    zero Classical.choice) that the 0-VRAM H_256 Sylvester-Hadamard byte embedding\n    e(b)_d = (1/16) * (-1)^popc(b &&& d) is 100% pairwise orthogonal on S^255:\n      1. Over Fin 256: sum_{d : Fin 256} (-1)^popc8(b1 &&& d) * (-1)^popc8(b2 &&& d) =\n         if b1 = b2 then 256 else 0,\n      2. Over UInt8: sum_{d : UInt8} (-1)^popcUInt8(b1 &&& d) * (-1)^popcUInt8(b2 &&& d) =\n         if b1 = b2 then 256 else 0,\n      3. Exact int8 quantization bound & norm: for every byte b and channel d,\n         127 * (-1)^popcUInt8(b &&& d) has square 16129 = 127^2, lies strictly inside\n         signed int8 [-128, 127] with zero quantization error, and sums to 256 * 127^2 = 4129024. -/\ntheorem p4_hadamard256_byte_orthogonality\n    (f1 f2 : Fin 256) (b1 b2 d8 : UInt8) :\n    sumFin 256 (fun d =>\n      ((-1 : Int) ^ popc8 (f1.val &&& d.val)) *\n      ((-1 : Int) ^ popc8 (f2.val &&& d.val))) =\n      (if f1 = f2 then 256 else 0) ∧\n    sumUInt8 (fun d =>\n      ((-1 : Int) ^ popcUInt8 (b1 &&& d)) *\n      ((-1 : Int) ^ popcUInt8 (b2 &&& d))) =\n      (if b1 = b2 then 256 else 0) ∧\n    (-128 ≤ 127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d8)) ∧\n      127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d8)) ≤ 127 ∧\n      (127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d8))) *\n        (127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d8))) = 16129) ∧\n    sumUInt8 (fun d =>\n      (127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d))) *\n      (127 * ((-1 : Int) ^ popcUInt8 (b1 &&& d)))) = 4129024\n\n/-- Theorem #40b (W10-OBS-55 / OBS-ORDA-16 — Bent-Phase Sign Modulation Preserves Orthogonality):\n    For ANY fixed +-1 diagonal phase modulation s : Fin 256 -> Int with forall d, s d * s d = 1\n    (and concretely for the Maiorana-McFarland bent phase bent4PhaseFin / bent4PhaseUInt8):\n      1. Universal sign-modulation isometry: sum_d (s d * e1 d) * (s d * e2 d) = sum_d e1 d * e2 d,\n      2. Exact +-1 unit-square law for bent4PhaseFin and bent4PhaseUInt8 across all 256 channels,\n      3. Bent-phase-modulated H_256 byte embeddings remain 100% pairwise orthogonal over Fin 256\n         and UInt8 (= 256 iff b1 = b2, else 0). -/\ntheorem p4b_bent_phase_preserves_orthogonality\n    (s : Fin 256 → Int) (hs : ∀ d : Fin 256, s d * s d = 1)\n    (e1 e2 : Fin 256 → Int)\n    (f1 f2 dFin : Fin 256) (b1 b2 d8 : UInt8) :\n    sumFin 256 (fun d => (s d * e1 d) * (s d * e2 d)) =\n      sumFin 256 (fun d => e1 d * e2 d) ∧\n    bent4PhaseFin dFin * bent4PhaseFin dFin = 1 ∧\n    bent4PhaseUInt8 d8 * bent4PhaseUInt8 d8 = 1 ∧\n    sumFin 256 (fun d =>\n      (bent4PhaseFin d * ((-1 : Int) ^ popc8 (f1.val &&& d.val))) *\n      (bent4PhaseFin d * ((-1 : Int) ^ popc8 (f2.val &&& d.val)))) =\n      (if f1 = f2 then 256 else 0) ∧\n    sumUInt8 (fun d =>\n      (bent4PhaseUInt8 d * ((-1 : Int) ^ popcUInt8 (b1 &&& d))) *\n      (bent4PhaseUInt8 d * ((-1 : Int) ^ popcUInt8 (b2 &&& d)))) =\n      (if b1 = b2 then 256 else 0)"
+  },
+  "convergence": {
+    "label": "lean/HoloSphereConvergenceTheorems.lean (32,080 bytes · 5 public theorems · statements only, proofs omitted)",
+    "code": "-- Generated by scripts/gen_lean_viewer.py from lean/HoloSphereConvergenceTheorems.lean (sha256 6d0f7875e4a98a2e). Statements only; see the file for proofs.\n\n/-- Theorem #41 (W10-OBS-60 — Exact Zero-gamma^-1 Woodbury Chunked Adjoint):\n    For every dimension n, step count t, ring scalars gamma and eta (including gamma = 0\n    with zero division by gamma!), checkpoint S0, rank-1 update streams (e_k, x_tilde_k),\n    query vector v, and column c:\n      1. Exact closed-form transpose identity:\n         (S_t^T v)_c = gamma^t (S_0^T v)_c + sum_{k=0}^{t-1} gamma^{t-1-k} eta <e_k, v> x_tilde_{k,c},\n      2. Exact gamma = 0 boundary safety (where naive gamma^-1 backward divides by zero):\n         at gamma = 0 and step t + 1, (S_{t+1}^T v)_c = eta * <e_t, v> * x_tilde_{t,c}. -/\ntheorem p41_woodbury_zero_inv_chunked_adjoint\n    (n t : Nat) (gamma eta : Int) (S0 : Nat → Nat → Int)\n    (e x_tilde : Nat → Nat → Int) (v : Nat → Int) (c : Nat) :\n    matTransVec n (sfastSeq gamma eta S0 e x_tilde t) v c =\n      woodburyTransClosedForm n gamma eta S0 e x_tilde v t c ∧\n    matTransVec n (sfastSeq 0 eta S0 e x_tilde (t + 1)) v c =\n      eta * dotN n (e t) v * x_tilde t c\n\n/-- Theorem #42 (OBS-ORDA-26 — Relational Macro Holonomy Exact Gauge Invariance):\n    Over the Hamilton quaternion ring Q4:\n      1. Homogeneous right-gauge scaling: for ALL U1, U0, G,\n         (U1 * G) * conj(U0 * G) = normSq(G) * (U1 * conj(U0)),\n      2. Exact unit-gauge invariance: when normSq(G) = 1 and U_t' = U_t * G,\n         DeltaU' = U1' * conj(U0') = U1 * conj(U0) = DeltaU identically,\n      3. Exact endpoint recovery & arbitrary-caller transport: when normSq(U0) = 1,\n         DeltaU * U0 = U1 AND DeltaU * (U0 * H) = U1 * H for any caller context H,\n      4. Universal failure of raw endpoint storage: for EVERY unit U1 (normSq U1 = 1)\n         and EVERY non-identity context G != 1, U1 * G != U1. -/\ntheorem p42_relational_macro_holonomy_left_gauge_invariance\n    (U1 U0 G H : QuatZ) :\n    relMacro (qmul U1 G) (qmul U0 G) = qscale (normSq G) (relMacro U1 U0) ∧\n    (normSq G = 1 → relMacro (qmul U1 G) (qmul U0 G) = relMacro U1 U0) ∧\n    (normSq U0 = 1 →\n      qmul (relMacro U1 U0) U0 = U1 ∧\n      qmul (relMacro U1 U0) (qmul U0 H) = qmul U1 H) ∧\n    (normSq U1 = 1 → G ≠ qone → qmul U1 G ≠ U1)\n\n/-- Theorem #43 (OBS-ORDA-10 — Exhaustive [16, 11, 4] Extended Hamming Inline SECDED):\n    For EVERY valid 16-bit codeword c (a16Syndrome5 c = 0, all 2^11 = 2048 codewords):\n      1. Equivalence of OR-packed and XOR-packed hardware syndrome formulas,\n      2. 100% Single-Error Correction (SEC) across all 16 bit lanes j in 0..15:\n         for corrupted word w1 = c ^^^ (1 <<< j), syndrome s != 0, overall parity p = 1,\n         lane recovery ((s >>> 1) &&& 0xF) == j, AND inline correction w1 ^^^ (1 <<< lane) = c,\n      3. 100% Double-Error Detection (DED) across all 120 bit pairs j < k:\n         for corrupted word w2 = c ^^^ (1 <<< j) ^^^ (1 <<< k), syndrome s != 0 AND\n         overall parity p = 0 (zero silent miscorrection -> triggers Weft 16 B rollback!). -/\ntheorem p43_a16_hamming16_11_4_inline_secded\n    (c : BitVec 16) (hc : a16Syndrome5 c = 0#5)\n    (j k : Fin 16) :\n    a16Syndrome5Or c = a16Syndrome5 c ∧\n    (a16Syndrome5 (c ^^^ errBit16 j) ≠ 0#5 ∧\n     a16OverallParity (c ^^^ errBit16 j) = 1#5 ∧\n     a16PosLane (c ^^^ errBit16 j) = j.val ∧\n     ((c ^^^ errBit16 j) ^^^ (1#16 <<< a16PosLane (c ^^^ errBit16 j))) = c) ∧\n    (j.val < k.val →\n      a16Syndrome5 ((c ^^^ errBit16 j) ^^^ errBit16 k) ≠ 0#5 ∧\n      a16OverallParity ((c ^^^ errBit16 j) ^^^ errBit16 k) = 0#5)\n\n/-- Theorem #44 (OBS-ORDA-17 / W10-OBS-56 — 23-Bit Dyadic Gumbel Strict Unit-Interval Safety):\n    For EVERY u in [0, 2^32 - 1] (and every u32 : UInt32):\n      1. Exact top-23-bit range: gumbelMantissa23(u) <= 2^23 - 1 = 8388607,\n      2. Strict interior 24-bit odd numerator bounds:\n         1 <= 2*m + 1 <= 2^24 - 1 = 16777215 (so (2*m + 1) / 2^24 lies strictly inside\n         [2^-24, 1 - 2^-24] with an exact 24-bit binary32 significand and zero rounding to 0 or 1!),\n      3. Exact endpoint attainment: u = 0 -> 1, u = 2^32 - 1 -> 2^24 - 1,\n      4. Exact naive 32-bit rounding-to-1.0f witness & sharp threshold:\n         for u_bad = 2^32 - 128 (0xFFFFFF80) — and EVERY u in [0xFFFFFF80, 0xFFFFFFFF] —\n         naive (u + 1/2)/2^32 = (2*u + 1)/2^33 satisfies 2^33 - (2*u + 1) < 2^8\n         (i.e. 1 - (u + 1/2)/2^32 < 2^-25, strictly inside the half-ULP rounding-to-1.0f zone!),\n         whereas u = 2^32 - 129 (0xFFFFFF7F) satisfies 2^33 - (2*u + 1) = 257 > 2^8. -/\ntheorem p44_dyadic_23bit_gumbel_strict_unit_interval\n    (u : Nat) (hu : u < 2 ^ 32) (u32 : UInt32) :\n    gumbelMantissa23 u ≤ 2 ^ 23 - 1 ∧\n    (1 ≤ gumbelDyadicNum24 u ∧ gumbelDyadicNum24 u ≤ 2 ^ 24 - 1) ∧\n    (1 ≤ gumbelDyadicNum24 u32.toNat ∧ gumbelDyadicNum24 u32.toNat ≤ 2 ^ 24 - 1) ∧\n    gumbelDyadicNum24 0 = 1 ∧\n    gumbelDyadicNum24 (2 ^ 32 - 1) = 2 ^ 24 - 1 ∧\n    (2 ^ 33 - (2 * (2 ^ 32 - 128) + 1) = 255 ∧ 255 < 2 ^ 8) ∧\n    (∀ u_hi : Nat, 2 ^ 32 - 128 ≤ u_hi → u_hi < 2 ^ 32 →\n      2 ^ 33 - (2 * u_hi + 1) < 2 ^ 8) ∧\n    2 ^ 33 - (2 * (2 ^ 32 - 129) + 1) = 257\n\n/-- Theorem #45 (OBS-ORDA-18 / OBS-ORDA-19 — Non-Abelian SU(2) 3-Line Adjoint Identity):\n    Over Hamilton quaternion ring Q4 with inner product <a, b> = Re(a * conj(b)):\n      1. Exact inner-product real-part representation: inner4 a b = qRe (qmul a (qconj b)),\n      2. Exact Track S117 3-line covariant un-transport adjoint (xt = conj(U_t) * x_t,\n         U_t = q_t * U_{t-1}, dU_t = dq_t * U_{t-1} + q_t * dU_{t-1},\n         dxt = conj(dU_t) * x_t + conj(U_t) * dx_t):\n         with gU_cur = gU_next + x_t * conj(gxt), gq_t = gU_cur * conj(U_{t-1}),\n         gU_prev = conj(q_t) * gU_cur, and gx_in = U_t * gxt,\n         <gxt, dxt> + <gU_next, dU_t> = <gq_t, dq_t> + <gU_prev, dU_{t-1}> + <gx_in, dx_t>,\n      3. Exact forward-rotation dual (x_rot = U_t * x_t, dx_rot = dU_t * x_t + U_t * dx_t):\n         with gU_cur_f = gU_next + gxt * conj(x_t), gq_t_f = gU_cur_f * conj(U_{t-1}),\n         gU_prev_f = conj(q_t) * gU_cur_f, and gx_in_f = conj(U_t) * gxt,\n         <gxt, dx_rot> + <gU_next, dU_t> = <gq_t_f, dq_t> + <gU_prev_f, dU_{t-1}> + <gx_in_f, dx_t>,\n      4. Non-Abelian order-reversal refutation (OBS-ORDA-18):\n         conj(i) * (conj(j) * 1) != conj(i * j) * 1. -/\ntheorem p45_su2_nonabelian_3line_adjoint_identity\n    (a b q_t U_prev x_t gxt gU_next dq_t dU_prev dx_t : QuatZ) :\n    let U_t := qmul q_t U_prev\n    let dU_t := qadd (qmul dq_t U_prev) (qmul q_t dU_prev)\n    let dxt := qadd (qmul (qconj dU_t) x_t) (qmul (qconj U_t) dx_t)\n    let gU_cur := qadd gU_next (qmul x_t (qconj gxt))\n    let gq_t := qmul gU_cur (qconj U_prev)\n    let gU_prev := qmul (qconj q_t) gU_cur\n    let gx_in := qmul U_t gxt\n    let dx_rot := qadd (qmul dU_t x_t) (qmul U_t dx_t)\n    let gU_cur_f := qadd gU_next (qmul gxt (qconj x_t))\n    let gq_t_f := qmul gU_cur_f (qconj U_prev)\n    let gU_prev_f := qmul (qconj q_t) gU_cur_f\n    let gx_in_f := qmul (qconj U_t) gxt\n    inner4 a b = qRe (qmul a (qconj b)) ∧\n    inner4 gxt dxt + inner4 gU_next dU_t =\n      inner4 gq_t dq_t + inner4 gU_prev dU_prev + inner4 gx_in dx_t ∧\n    inner4 gxt dx_rot + inner4 gU_next dU_t =\n      inner4 gq_t_f dq_t + inner4 gU_prev_f dU_prev + inner4 gx_in_f dx_t ∧\n    qmul (qconj qi) (qmul (qconj qj) qone) ≠ qmul (qconj (qmul qi qj)) qone"
+  }
+};
+      /* END GENERATED LEAN_SUITES */
+
+      const ORACLE_SAMPLES = 1250;
+
+      /* BEGIN ORACLE_EVAL */
+      const ORACLE_TOLERANCE = 1e-12;
+      function evaluateOracle(items, tol) {
+        const rows = [];
+        let maxErr = 0;
+        for (let i = 0; i < items.length; i++) {
+          const err = items[i].err;
+          const pass = Number.isFinite(err) && err <= tol;
+          rows.push({ name: items[i].name, err: err, pass: pass });
+          if (!Number.isFinite(err)) {
+            maxErr = err;
+          } else if (err > maxErr) {
+            maxErr = err;
+          }
+        }
+        let pass = true;
+        for (let j = 0; j < rows.length; j++) {
+          if (!rows[j].pass) pass = false;
+        }
+        return { pass: pass, maxErr: maxErr, rows: rows };
+      }
+      /* END ORACLE_EVAL */
+
+      function runLiveOracleChecks(samples) {
+        let maxMulErr = 0;
+        let maxCayleyErr = 0;
+        let maxHopfErr = 0;
+        let maxAssocErr = 0;
+
+        for (let i = 0; i < samples; i++) {
+          const wx = (Math.random() - 0.5) * 4.0;
+          const wy = (Math.random() - 0.5) * 4.0;
+          const wz = (Math.random() - 0.5) * 4.0;
+
+          // 1. Rational Cayley exact unit norm
+          const q1 = cayley(wx, wy, wz);
+          maxCayleyErr = Math.max(maxCayleyErr, Math.abs(su2Norm(q1) - 1.0));
+
+          // 2. Multiplicative S³ closure
+          const q2 = cayley((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
+          const q3 = cayley((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
+          const prod = su2Mul(q1, q2);
+          maxMulErr = Math.max(maxMulErr, Math.abs(su2Norm(prod) - 1.0));
+
+          // 3. Associativity of Chunk-32 parallel scan: (q1 ⊗ q2) ⊗ q3 == q1 ⊗ (q2 ⊗ q3)
+          const lhs = su2Mul(prod, q3);
+          const rhs = su2Mul(q1, su2Mul(q2, q3));
+          const assocDiff = Math.sqrt(
+            Math.pow(lhs[0] - rhs[0], 2) + Math.pow(lhs[1] - rhs[1], 2) +
+            Math.pow(lhs[2] - rhs[2], 2) + Math.pow(lhs[3] - rhs[3], 2)
+          );
+          maxAssocErr = Math.max(maxAssocErr, assocDiff);
+
+          // 4. Hopf U(1) fiber gauge invariance: π(hopf(θ,φ,ψ₁)) == π(hopf(θ,φ,ψ₂))
+          const th = Math.random() * PI;
+          const ph = Math.random() * TAU;
+          const s2a = hopfProjectS2(hopf(th, ph, Math.random() * TAU));
+          const s2b = hopfProjectS2(hopf(th, ph, Math.random() * TAU));
+          const hopfDiff = Math.sqrt(
+            Math.pow(s2a[0] - s2b[0], 2) + Math.pow(s2a[1] - s2b[1], 2) + Math.pow(s2a[2] - s2b[2], 2)
+          );
+          maxHopfErr = Math.max(maxHopfErr, hopfDiff);
+        }
+
+        const box = document.getElementById('oracle-results');
+        const items = [
+          { name: 'Cayley Unit Norm |‖Cay(ω)‖ - 1|', err: maxCayleyErr },
+          { name: 'SU(2) Closure |‖q₁⊗q₂‖ - 1|', err: maxMulErr },
+          { name: 'Scan Associativity ‖(ab)c - a(bc)‖', err: maxAssocErr },
+          { name: 'Hopf Gauge ‖π(q·e^{iψ₁}) - π(q·e^{iψ₂})‖', err: maxHopfErr }
+        ];
+
+        const result = evaluateOracle(items, ORACLE_TOLERANCE);
+        box.innerHTML = result.rows.map(function (row) {
+          const ok = row.pass;
+          const markClass = ok ? 'text-emerald-300' : 'text-rose-300';
+          const mark = ok ? '✓' : '✗ FAIL';
+          return (
+            '<div class="p-2.5 rounded-xl bg-obsidian-950/90 border border-slate-800 flex items-center justify-between gap-2">' +
+              '<span class="text-slate-300 truncate">' + row.name + '</span>' +
+              '<span class="' + markClass + ' font-semibold shrink-0">' + row.err.toExponential(2) + ' ' + mark + '</span>' +
+            '</div>'
+          );
+        }).join('');
+        return result;
+      }
+
+      /* ---------------------------------------------------------------------
+       * 11. REPOSITORY ATLAS (EXACT MODULES FROM holosphere-main.zip)
+       * -------------------------------------------------------------------*/
+      const REPO_MODULES = [
+        { cat: 'geometry', path: 'holosphere/geometry/hopf.py', size: '12,684 B', desc: 'Exact S¹ ↪ S³ → S² Hopf fibration lifts, Bloch projections, and Berry phase extraction.' },
+        { cat: 'geometry', path: 'holosphere/geometry/beltrami.py', size: '10,719 B', desc: 'Beltrami–Klein projective ball coordinates straight-line geodesic transport & Cayley retractions.' },
+        { cat: 'geometry', path: 'holosphere/geometry/su2.py', size: '10,641 B', desc: 'Unit spinor group SU(2) ≅ S³ algebra, exponential/logarithmic maps, and geodesic slerp.' },
+        { cat: 'geometry', path: 'holosphere/geometry/bingham.py', size: '4,049 B', desc: 'Antipodally symmetric Bingham distributions on ℝℙ³ replacing uncalibrated softmax logits.' },
+        { cat: 'geometry', path: 'holosphere/geometry/darboux.py', size: '3,472 B', desc: 'Moving Darboux surface frames tracking geodesic curvature κ_g, normal κ_n, and torsion τ_g.' },
+        { cat: 'models', path: 'holosphere/barrington_su2.py', size: '46,743 B', desc: 'Non-solvable SU(2) spinor commutator programs achieving NC¹ circuit expressivity in O(log N) scan.' },
+        { cat: 'models', path: 'holosphere/chunk32_ops.py', size: '46,137 B', desc: 'Warp-aligned 32-token chunk associative reductions and cross-chunk holonomy stitching.' },
+        { cat: 'models', path: 'holosphere/bridges.py', size: '45,523 B', desc: 'Isometric cross-spine geometric bridges coupling residual tangent vectors and S³ fibers.' },
+        { cat: 'models', path: 'holosphere/models/transformer.py', size: '24,625 B', desc: 'End-to-end HoloSphere sequence backbone integrating holonomy blocks, heads, and Cayley depth.' },
+        { cat: 'models', path: 'holosphere/models/weft_shell.py', size: '9,096 B', desc: 'Transverse cross-channel fiber mixing weaving H=256 spinor channels with warp scans.' },
+        { cat: 'models', path: 'holosphere/models/nullmodem_e8.py', size: '8,277 B', desc: '8-dimensional E₈ Gosset root lattice coupling & minimal-distortion dual-spinor quantization.' },
+        { cat: 'kernels', path: 'holosphere/kernels/csrc/su2_holonomy_scan_sm86.cu', size: '90,888 B', desc: 'Bare-metal Ampere sm_86 warp-shuffle SU(2) forward/backward associative holonomy scan.' },
+        { cat: 'kernels', path: 'holosphere/kernels/csrc/holosphere_h256_chunk32_sm86.cu', size: '84,424 B', desc: 'Fused H=256 Chunk-32 CUDA kernel verified with ptxas zero register spill (S117 receipt).' },
+        { cat: 'kernels', path: 'holosphere/kernels/csrc/holosphere_v3_frontier_sm86.cu', size: '40,092 B', desc: 'Frontier v3 fused inference/training kernel utilizing 4-byte Razor register transport.' },
+        { cat: 'kernels', path: 'include/razor_abi_4byte_sys.h', size: '12,657 B', desc: '4-Byte Razor ABI system header packing projective spinor states into 32-bit lane registers.' },
+        { cat: 'kernels', path: 'holosphere/kernels/su2_holonomy_triton.py', size: '22,883 B', desc: 'Portable Triton GPU holonomy scan & Siliquant/CUDA dispatch bridges.' },
+        { cat: 'lean', path: 'lean/HoloSphereInvariants.lean', size: '71,047 B', desc: 'Core Lean 4 theorems for S³ group closure, Hopf gauge invariance, and conformal bounds.' },
+        { cat: 'lean', path: 'lean/HoloSphereCrossSpineBridges.lean', size: '46,891 B', desc: 'Formal bijection & stability proofs across Cayley, Beltrami, and Hopf coordinate spines.' },
+        { cat: 'lean', path: 'lean/HoloSphereCellOpInvariants.lean', size: '37,414 B', desc: 'Equivalence proofs between 5-pass Chunk-32 parallel tree scans and sequential holonomy.' },
+        { cat: 'lean', path: 'lean/HoloSphereConvergenceTheorems.lean', size: '32,080 B', desc: 'Riemannian gradient norm preservation and S106–S114 variable-depth convergence bounds.' },
+        { cat: 'lean', path: 'lean/HoloSphereSpinorBarrington.lean', size: '26,396 B', desc: 'Machine-checked Barrington SU(2) commutator expressivity and abelian separation theorems.' },
+        { cat: 'research', path: 'research/ARCHITECTURE_KERNEL_ISOMORPHISM.md', size: '5,564 B', desc: 'Foundational design thesis mapping mathematical group structure 1-to-1 onto GPU warp topology.' },
+        { cat: 'research', path: 'benchmarks/s114_s107_s108_convergence.py', size: '36,746 B', desc: 'Preregistered S114 convergence & state-tracking benchmark suite.' },
+        { cat: 'research', path: 'tests/test_telemetry_cayley_vardepth.py', size: '28,910 B', desc: 'Exact geometry, gradcheck, Chunk-32, and Cayley variable-depth telemetry verification.' }
+      ];
+
+      function renderAtlas(filterKey) {
+        const grid = document.getElementById('atlas-grid');
+        const badgeColors = {
+          geometry: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
+          kernels: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+          models: 'text-purple-300 bg-purple-500/15 border-purple-500/30',
+          lean: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+          research: 'text-rose-300 bg-rose-500/15 border-rose-500/30'
+        };
+
+        const filtered = REPO_MODULES.filter(function (m) {
+          return filterKey === 'all' || m.cat === filterKey;
+        });
+
+        grid.innerHTML = filtered.map(function (m) {
+          return (
+            '<div class="glass-panel rounded-2xl p-4 flex flex-col justify-between gap-2.5 hover:border-slate-600 transition">' +
+              '<div>' +
+                '<div class="flex items-center justify-between gap-2 mb-2">' +
+                  '<span class="px-2 py-0.5 rounded-md text-[10px] font-mono border ' + badgeColors[m.cat] + '">' + m.cat + '</span>' +
+                  '<span class="text-[11px] font-mono text-slate-400">' + m.size + '</span>' +
+                '</div>' +
+                '<div class="font-mono text-xs text-white font-semibold break-all">' + m.path + '</div>' +
+                '<p class="text-xs text-slate-400 mt-1.5 leading-relaxed">' + m.desc + '</p>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+      }
+
+      /* ---------------------------------------------------------------------
+       * 12. PRESET LOADER, KATEX FORMULAS, & UI BINDINGS
+       * -------------------------------------------------------------------*/
+      function safeRenderKatex(el, tex, displayMode) {
+        if (!el) return;
+        if (window.katex) {
+          window.katex.render(tex, el, { throwOnError: false, displayMode: !!displayMode });
+        } else {
+          el.textContent = tex;
+        }
+      }
+
+      function loadPreset(key) {
+        const p = PRESETS[key];
+        if (!p) return;
+        currentPresetKey = key;
+
+        // Update Preset Button Styling
+        document.querySelectorAll('.preset-btn').forEach(function (btn) {
+          const isMatch = btn.getAttribute('data-preset') === key;
+          btn.className = isMatch
+            ? 'preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-sky-500/20 border-sky-400 text-sky-200'
+            : 'preset-btn px-3 py-1.5 rounded-xl text-xs font-mono border transition bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500';
+        });
+
+        // Update HUD & Formula Card
+        document.getElementById('hud-mode-title').textContent = p.hudTitle;
+        document.getElementById('formula-badge').textContent = p.badge;
+        document.getElementById('formula-caption').textContent = p.caption;
+        document.getElementById('script-filename').textContent = p.filename;
+        safeRenderKatex(document.getElementById('studio-katex-box'), p.latex, true);
+
+        // Configure Sliders
+        ['alpha', 'p1', 'p2', 'p3'].forEach(function (sKey) {
+          const cfg = p.sliders[sKey];
+          const sl = document.getElementById('slider-' + sKey);
+          document.getElementById('label-' + sKey).textContent = cfg.label;
+          sl.min = cfg.min;
+          sl.max = cfg.max;
+          sl.value = cfg.val;
+          document.getElementById('val-' + sKey).textContent = Number(cfg.val).toFixed(2);
+        });
+
+        // Populate Editor & Compile
+        const editor = document.getElementById('holoscript-editor');
+        editor.value = p.code;
+        compileHoloScript(p.code);
+      }
+
+      function initStaticMathAndUI() {
+        // Inline Hero Math
+        safeRenderKatex(document.getElementById('math-inline-tc0'), '\\mathsf{TC}^0', false);
+        safeRenderKatex(document.getElementById('math-inline-su2'), '\\mathrm{SU}(2) \\cong S^3', false);
+
+        // Five Pillars Math
+        safeRenderKatex(document.getElementById('pillar-math-1'),
+          'S^1 \\hookrightarrow S^3 \\xrightarrow{\\;\\pi\\;} S^2, \\quad \\pi(z_0,z_1) = \\bigl(2z_0\\bar{z}_1,\\; |z_0|^2 - |z_1|^2\\bigr)', true);
+        safeRenderKatex(document.getElementById('pillar-math-2'),
+          '[g, h] = g h g^{-1} h^{-1} \\in \\mathrm{SU}(2) \\implies \\mathsf{NC}^1\\text{-Complete}', true);
+        safeRenderKatex(document.getElementById('pillar-math-3'),
+          '\\operatorname{Cay}(\\Omega) = (I - \\Omega)(I + \\Omega)^{-1}, \\quad \\det \\operatorname{Cay}(\\Omega) = 1', true);
+        safeRenderKatex(document.getElementById('pillar-math-4'),
+          'p(\\mathbf{x}; \\Lambda, V) = \\frac{1}{{}_1F_1(\\tfrac{1}{2}, 2, \\Lambda)}\\exp(\\mathbf{x}^\\top V \\Lambda V^\\top \\mathbf{x})', true);
+        safeRenderKatex(document.getElementById('pillar-math-5'),
+          'E_8 = D_8 \\cup \\left(D_8 + \\tfrac{1}{2}\\mathbf{1}_8\\right) \\subset \\mathbb{H}_L \\oplus \\mathbb{H}_R \\cong \\mathbb{R}^8', true);
+
+        // Preset Buttons
+        document.querySelectorAll('.preset-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            loadPreset(this.getAttribute('data-preset'));
+          });
+        });
+
+        // Sliders Live Readout
+        ['alpha', 'p1', 'p2', 'p3'].forEach(function (sKey) {
+          const sl = document.getElementById('slider-' + sKey);
+          sl.addEventListener('input', function () {
+            document.getElementById('val-' + sKey).textContent = Number(this.value).toFixed(2);
+          });
+        });
+
+        // HoloScript Live Auto-Compile + Ctrl+Enter
+        const editor = document.getElementById('holoscript-editor');
+        let debounceTimer = null;
+        editor.addEventListener('input', function () {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(function () {
+            compileHoloScript(editor.value);
+          }, 180);
+        });
+        editor.addEventListener('keydown', function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            if (compileHoloScript(editor.value)) {
+              showToast('HoloScript Kernel Recompiled!', 'emerald');
+            }
+          }
+        });
+        document.getElementById('btn-run-script').addEventListener('click', function () {
+          if (compileHoloScript(editor.value)) {
+            showToast('HoloScript Kernel Recompiled!', 'emerald');
+          }
+        });
+
+        // Viewport Toolbar Buttons
+        document.getElementById('btn-toggle-darboux').addEventListener('click', function () {
+          showDarboux = !showDarboux;
+          this.textContent = showDarboux ? 'Darboux Triad: ON' : 'Darboux Triad: OFF';
+        });
+        document.getElementById('btn-pause-sim').addEventListener('click', function () {
+          simPaused = !simPaused;
+          this.textContent = simPaused ? 'Resume' : 'Pause';
+        });
+        document.getElementById('btn-reset-cam').addEventListener('click', function () {
+          targetTheta = 0.68;
+          targetPhi = 1.18;
+          targetRadius = 5.35;
+        });
+
+        // Header Sonic & Copy Buttons
+        document.getElementById('btn-sonic-toggle').addEventListener('click', toggleSonification);
+        document.getElementById('btn-copy-install').addEventListener('click', function () {
+          copyTextSafe('pip install -e . && pytest tests/run_all.py', 'pip install -e . && pytest tests/run_all.py');
+        });
+
+        // Lean 4 Tabs & Live Oracle
+        function selectLeanTab(key) {
+          const suite = LEAN_SUITES[key];
+          document.getElementById('lean-file-label').textContent = suite.label;
+          document.getElementById('lean-code-view').textContent = suite.code;
+          document.querySelectorAll('.lean-tab').forEach(function (btn) {
+            const match = btn.getAttribute('data-lean') === key;
+            btn.className = match
+              ? 'lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-emerald-500/20 text-emerald-200 border border-emerald-400/40'
+              : 'lean-tab px-2.5 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-600';
+          });
+        }
+        document.querySelectorAll('.lean-tab').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            selectLeanTab(this.getAttribute('data-lean'));
+          });
+        });
+        selectLeanTab('invariants');
+        runLiveOracleChecks(ORACLE_SAMPLES);
+
+        document.getElementById('btn-run-oracle').addEventListener('click', function () {
+          const r = runLiveOracleChecks(ORACLE_SAMPLES);
+          if (r.pass) {
+            showToast(ORACLE_SAMPLES.toLocaleString() + ' random draws × 4 invariants: all within tolerance ' + ORACLE_TOLERANCE.toExponential() + ' (max error ' + r.maxErr.toExponential(2) + ')', 'emerald');
+          } else {
+            const failingCount = r.rows.filter(function (row) { return !row.pass; }).length;
+            showToast('Oracle FAILED: ' + failingCount + ' of 4 invariants exceeded tolerance ' + ORACLE_TOLERANCE.toExponential() + ' (max error ' + r.maxErr.toExponential(2) + ')', 'rose');
+          }
+        });
+
+        // Context-Length Memory Scaling Slider
+        const ctxSlider = document.getElementById('slider-ctx');
+        function updateCtxCalc() {
+          const expPow = parseInt(ctxSlider.value, 10); // 2^10 (1024) .. 2^20 (1,048,576)
+          const tokens = Math.pow(2, expPow);
+          // 24 layers * 2 (K,V) * 256 dim * 2 bytes (FP16) = 24,576 bytes per token
+          const kvMB = (tokens * 24576) / (1024 * 1024);
+          document.getElementById('val-ctx').textContent = tokens.toLocaleString() + ' tokens';
+          document.getElementById('mem-kv').textContent = kvMB >= 1024
+            ? (kvMB / 1024).toFixed(2) + ' GB'
+            : kvMB.toFixed(1) + ' MB';
+          const pct = Math.min(100, Math.max(4, ((expPow - 9) / 11) * 100));
+          document.getElementById('bar-kv').style.width = pct + '%';
+        }
+        ctxSlider.addEventListener('input', updateCtxCalc);
+        updateCtxCalc();
+
+        // Repository Atlas Filter Buttons
+        document.querySelectorAll('.atlas-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const f = this.getAttribute('data-filter');
+            renderAtlas(f);
+            document.querySelectorAll('.atlas-btn').forEach(function (b) {
+              const active = b === btn;
+              b.className = active
+                ? 'atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-sky-500/20 text-sky-200 border border-sky-400/40'
+                : 'atlas-btn px-3 py-1.5 rounded-xl text-xs font-mono bg-slate-900/80 text-slate-300 border border-slate-800';
+            });
+          });
+        });
+        renderAtlas('all');
+      }
+
+      /* ---------------------------------------------------------------------
+       * 13. MAIN ANIMATION LOOP (STARTED CLEANLY ON window.onload)
+       * -------------------------------------------------------------------*/
+      let prevFrameTime = 0;
+
+      function animateLoop(nowMs) {
+        requestAnimationFrame(animateLoop);
+
+        const dt = Math.min(0.05, (nowMs - prevFrameTime) * 0.001 || 0.016);
+        prevFrameTime = nowMs;
+
+        if (!simPaused) {
+          simTime += dt;
+          if (!isPointerDown) {
+            targetTheta += dt * 0.11; // Gentle orbital drift when idle
+          }
+        }
+
+        if (renderer && camera) {
+          // Smooth exponential damping on camera spherical orbit
+          camTheta += (targetTheta - camTheta) * 0.10;
+          camPhi += (targetPhi - camPhi) * 0.10;
+          camRadius += (targetRadius - camRadius) * 0.10;
+
+          camera.position.set(
+            camRadius * Math.sin(camPhi) * Math.cos(camTheta),
+            camRadius * Math.cos(camPhi),
+            camRadius * Math.sin(camPhi) * Math.sin(camTheta)
+          );
+          camera.lookAt(0, 0, 0);
+
+          updateManifoldGeometry(simTime);
+          renderer.render(scene, camera);
+        }
+
+        // Auto-step Chunk-32 Warp Scanner every 1.35s if enabled
+        if (autoScan && nowMs - lastAutoStepTime > 1350) {
+          lastAutoStepTime = nowMs;
+          setScanPass((scanPass + 1) % 6);
+        }
+      }
+
+      window.onload = function () {
+        initThreeStage();
+        initS2Pad();
+        initWarpScannerEvents();
+        initStaticMathAndUI();
+        loadPreset('hopf');
+        drawS2Pad();
+        setScanPass(5);
+        prevFrameTime = performance.now();
+        requestAnimationFrame(animateLoop);
+      };
+    })();
+  </script>
+</body>
+</html>
