@@ -1,0 +1,45 @@
+{
+  "lean_verification": {
+    "axiom_breakdown": {
+      "propext_only_theorems": 29,
+      "propext_quot_theorems": 6,
+      "zero_axiom_theorems": 3
+    },
+    "lean_files": 5,
+    "lean_loc": 1905,
+    "lean_toolchain": "leanprover/lean4:v4.36.0",
+    "public_theorems_audited": 38
+  },
+  "module": "LoopCDStrang",
+  "payload_sha256": "1f820d1bc57a60dc1cd848231316e64ce82111c3282cac710f279a65d4154d3a",
+  "pure_q_ast": {
+    "pure_q_ast_clean": true
+  },
+  "schema_version": "holosphere.loopcd_strang_lean436.v1",
+  "source_files_sha256": {
+    "AxiomAudit.lean": "43775e2730b1c7d8c464c45ad79461367a3971a662fa93e557fe7b86f2232d6e",
+    "LoopCDStrang.lean": "cd067e930862bf628fe88aad30bbbffb00bf0375c0c9f34034c0c55e70b07006",
+    "LoopCDStrang/IntPoly.lean": "4d1a7c54f188baef931e0f3863672bf6dd5034813b0f970de634776a4a4b5603",
+    "LoopCDStrang/QuatStrang.lean": "664b38394a6ef7822959c518249bb578a919117461976a6efcbc20314f7b5505",
+    "LoopCDStrang/SphereChord.lean": "8b71fad44937bbf4dfc226a7c8ad7363e470548addc5a6ec5fa0e2291a1b9f2f",
+    "lake-manifest.json": "f664f84ffe4b7ee66a9e116d7c6a1d62d55d429830c8432501a439bdbc36c511",
+    "lakefile.toml": "aae789c28d8021d751bf40bfb3fd72d9e82bf793218cf03b2f53cf83a0f83a67",
+    "lean-toolchain": "582a63f8f9c5128067b688778c1051cf1464c3ca9d57b9325025c051c29b774a"
+  },
+  "thm1_chord_saturation": {
+    "grid_pairs_verified": 36,
+    "strict_monotonicity_steps": 30
+  },
+  "thm2_palindromic_strang_bch": {
+    "cubic_divisibility_checks": 9,
+    "dyadic_scales_verified": 4
+  },
+  "thm3_acute_ball_floors": {
+    "acute_ball_triples_verified": 100,
+    "min_cayley_denom": "81/625",
+    "min_spinor_denom": "9/25"
+  },
+  "thm4_commutative_collapse": {
+    "collinear_collapse_checks": 30
+  }
+}

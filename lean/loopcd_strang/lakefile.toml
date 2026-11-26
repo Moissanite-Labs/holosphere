@@ -1,0 +1,6 @@
+name = "LoopCDStrang"
+version = "0.1.0"
+defaultTargets = ["LoopCDStrang"]
+
+[[lean_lib]]
+name = "LoopCDStrang"
