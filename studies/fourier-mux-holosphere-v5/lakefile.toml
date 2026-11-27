@@ -1,0 +1,6 @@
+name = "fourier_mux_loop_operators"
+version = "0.1.0"
+defaultTargets = ["FourierMuxLoopOperators"]
+
+[[lean_lib]]
+name = "FourierMuxLoopOperators"
